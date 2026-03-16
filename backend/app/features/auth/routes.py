@@ -23,6 +23,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         {
             "user_id": user.id,
             "email": user.email,
+            "assessment_status": user.assessment_status,
+            "next_route": "/assessment",
         },
         status_code=status.HTTP_201_CREATED,
     )
@@ -30,7 +32,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    _, access_token = auth_service.login_user(
+    user, access_token = auth_service.login_user(
         db,
         email=payload.email,
         password=payload.password,
@@ -40,6 +42,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         {
             "access_token": access_token,
             "token_type": "bearer",
+            "assessment_status": user.assessment_status,
+            "next_route": "/assessment" if user.assessment_status == "pending" else "/portal",
         },
     )
 

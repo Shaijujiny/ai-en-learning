@@ -11,6 +11,33 @@ type SkillMetric = {
   updated_at: string;
 };
 
+type LevelHistoryItem = {
+  level: string;
+  confidence_score: number;
+  source: string;
+  created_at: string;
+};
+
+type PersonalizedLesson = {
+  id: number;
+  lesson_type: string;
+  target_skill: string;
+  title: string;
+  instructions: string;
+  status: string;
+  recommended_scenario: string | null;
+  created_at: string;
+};
+
+type MistakeMemoryItem = {
+  mistake_type: string;
+  mistake_key: string;
+  hint: string | null;
+  correction: string | null;
+  occurrence_count: number;
+  last_seen_at: string;
+};
+
 type TrendPoint = {
   label: string;
   value: number;
@@ -32,8 +59,13 @@ type ConversationHistoryItem = {
 
 type DashboardData = {
   performance_score: number;
+  current_level: string | null;
+  level_confidence_score: number;
+  level_history: LevelHistoryItem[];
   skill_metrics: SkillMetric[];
   improvement_trends: ImprovementTrend[];
+  personalized_lessons: PersonalizedLesson[];
+  mistake_memory: MistakeMemoryItem[];
   conversation_history: ConversationHistoryItem[];
 };
 
@@ -155,9 +187,40 @@ export default function DashboardPage() {
 
               <div className="glass-panel rounded-[2rem] p-6">
                 <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
-                  Skill Metrics
+                  Learning Profile
                 </p>
                 <div className="mt-4 space-y-4">
+                  <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-sm text-slate-300">Current CEFR level</span>
+                      <span className="text-lg font-semibold text-white">
+                        {dashboard.current_level ?? "--"}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                      <span className="text-slate-400">Confidence</span>
+                      <span className="text-cyan-200">
+                        {dashboard.level_confidence_score.toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                  {dashboard.level_history.length > 0 ? (
+                    <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Level history
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {dashboard.level_history.map((item) => (
+                          <div
+                            key={`${item.created_at}-${item.source}`}
+                            className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200"
+                          >
+                            {item.level} · {item.source}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   {dashboard.skill_metrics.length === 0 ? (
                     <p className="text-sm text-slate-400">
                       No skill metrics yet. Run analyses to populate this dashboard.
@@ -244,6 +307,81 @@ export default function DashboardPage() {
                       : `View ${dashboard.improvement_trends.length - visibleTrends.length} more trends`}
                   </button>
                 ) : null}
+              </div>
+              <div className="glass-panel rounded-[2rem] p-6">
+                <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+                  Personalized Lessons
+                </p>
+                <div className="mt-4 space-y-4">
+                  {dashboard.personalized_lessons.length === 0 ? (
+                    <p className="text-sm text-slate-400">
+                      No lessons generated yet. Complete assessment or run analyses first.
+                    </p>
+                  ) : (
+                    dashboard.personalized_lessons.map((lesson) => (
+                      <div
+                        key={lesson.id}
+                        className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-sm font-medium text-white">
+                            {lesson.title}
+                          </span>
+                          <span className="text-[11px] uppercase tracking-[0.2em] text-cyan-300">
+                            {lesson.lesson_type.replaceAll("_", " ")}
+                          </span>
+                        </div>
+                        <p className="mt-3 text-sm leading-7 text-slate-300">
+                          {lesson.instructions}
+                        </p>
+                        {lesson.recommended_scenario ? (
+                          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+                            Scenario: {lesson.recommended_scenario}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="glass-panel rounded-[2rem] p-6">
+                <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+                  Mistake Memory
+                </p>
+                <div className="mt-4 space-y-4">
+                  {dashboard.mistake_memory.length === 0 ? (
+                    <p className="text-sm text-slate-400">
+                      No repeated mistakes tracked yet.
+                    </p>
+                  ) : (
+                    dashboard.mistake_memory.map((item) => (
+                      <div
+                        key={`${item.mistake_type}-${item.mistake_key}`}
+                        className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-sm font-medium text-white">
+                            {item.mistake_type.replaceAll("_", " ")}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {item.occurrence_count} times
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-300">
+                          {item.hint ?? item.mistake_key}
+                        </p>
+                        {item.correction ? (
+                          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-cyan-300">
+                            Correction: {item.correction}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
               <div className="glass-panel flex max-h-[760px] flex-col rounded-[2rem] p-6">

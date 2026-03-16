@@ -52,6 +52,10 @@ backend/app
       schema.py
       model.py
       repository.py
+    assessment/
+      routes.py
+      service.py
+      schema.py
     ai_chat/
       ai_service.py
       prompt_builder.py
@@ -256,11 +260,103 @@ Steps covered:
 - Step 29: Multi-Language Support
 - Step 30: AI Career Advisor
 
+### Phase 9: Onboarding Assessment System
+
+Status: in progress
+
+Delivered in current start:
+
+- onboarding assessment entry after registration and pending-login routing
+- skip-for-now support with stored assessment status
+- onboarding question engine with 7 questions:
+  - self introduction
+  - daily routine
+  - past experience
+  - opinion question
+  - roleplay response
+  - grammar and vocabulary prompt
+  - follow-up question
+- assessment storage tables:
+  - `assessment_sessions`
+  - `assessment_answers`
+- learning profile fields on `users`:
+  - `assessment_status`
+  - `user_level`
+  - `skill_breakdown`
+  - `recommended_path`
+- assessment scoring for:
+  - grammar accuracy
+  - fluency
+  - vocabulary diversity
+  - confidence
+  - sentence complexity
+  - answer completeness
+- CEFR estimate:
+  - A1
+  - A2
+  - B1
+  - B2
+  - C1
+  - C2
+- assessment result UI with:
+  - current level
+  - strongest skill
+  - weakest skill
+  - recommended first scenario
+  - 7-day practice suggestion
+
+Steps covered:
+
+- Step 31: Assessment Onboarding Flow
+- Step 32: Assessment Question Engine
+- Step 33: Assessment Answer Storage
+- Step 34: English Level Scoring
+- Step 35: Assessment Result Page
+- Step 36: User Learning Profile
+
+### Phase 10: Learning Intelligence
+
+Status: in progress
+
+Delivered in current start:
+
+- persistent CEFR level tracking with:
+  - current level
+  - confidence score
+  - level history over time
+- personalized lesson generation from weaknesses:
+  - grammar lesson
+  - vocabulary lesson
+  - speaking task
+  - listening task
+  - short writing task
+- mistake memory tracking for repeated issues:
+  - tense
+  - article
+  - preposition
+  - sentence structure
+  - repeated weak words
+- adaptive AI conversation behavior using:
+  - question complexity
+  - speaking difficulty
+  - correction strictness
+  - vocabulary level
+  - follow-up depth
+
+Steps covered:
+
+- Step 37: CEFR Level Engine
+- Step 38: Personalized Lesson Generator
+- Step 39: Mistake Memory System
+- Step 40: Adaptive Scenario Difficulty
+
 ### Current Build Summary
 
 Current system includes:
 
 - separated user and admin login flows
+- onboarding English assessment flow with result page
+- learning intelligence with CEFR history, lessons, and mistake memory
 - user portal for scenario-based and custom-prompt conversations
 - standardized backend API response envelope
 - scenario-driven AI conversations with memory and voice
@@ -318,6 +414,8 @@ Examples:
 ### User Experience
 
 - Separate `login` and `register` pages
+- Assessment onboarding at `/assessment`
+- Assessment result page at `/assessment/result`
 - Dedicated user portal at `/portal`
 - Scenario selection
 - Custom conversation builder with custom title and prompt
@@ -339,6 +437,22 @@ Examples:
 - bcrypt password hashing
 - JWT token generation
 - protected routes
+- assessment-aware post-login routing
+
+### Onboarding Assessment
+
+- `GET /assessment/onboarding`
+- `POST /assessment/onboarding/skip`
+- `POST /assessment/onboarding/submit`
+- `GET /assessment/result`
+
+Includes:
+
+- assessment status tracking
+- CEFR level estimate
+- strongest and weakest skill detection
+- recommended first scenario
+- 7-day practice suggestion
 
 ### Conversation System
 
@@ -386,9 +500,17 @@ Includes:
 - analytics tables:
   - `user_scores`
   - `skill_metrics`
+- learning intelligence tables:
+  - `user_level_history`
+  - `personalized_lessons`
+  - `mistake_memory`
 - `GET /analytics/dashboard`
 - trend aggregation
 - conversation history summary
+- current CEFR level and confidence score
+- level history timeline
+- personalized lesson recommendations
+- repeated mistake memory
 
 ### Coaching
 
@@ -433,6 +555,8 @@ Includes:
 - `/login`: user login
 - `/register`: user registration
 - `/portal`: user scenario/custom conversation portal
+- `/assessment`: onboarding English assessment
+- `/assessment/result`: assessment result page
 - `/chat/[id]`: conversation chat
 - `/dashboard`: user analytics dashboard
 - `/admin/login`: admin login
@@ -474,6 +598,13 @@ Includes:
 - `POST /analysis/fluency`
 - `POST /analysis/vocabulary`
 
+### Assessment
+
+- `GET /assessment/onboarding`
+- `POST /assessment/onboarding/skip`
+- `POST /assessment/onboarding/submit`
+- `GET /assessment/result`
+
 ### Analytics
 
 - `GET /analytics/dashboard`
@@ -495,11 +626,16 @@ Includes:
 ## Database Tables
 
 - `users`
+- `assessment_sessions`
+- `assessment_answers`
 - `scenarios`
 - `conversations`
 - `messages`
 - `user_scores`
 - `skill_metrics`
+- `user_level_history`
+- `personalized_lessons`
+- `mistake_memory`
 
 ## Local Development
 
@@ -594,6 +730,8 @@ Current Alembic revisions:
 - `0004_analytics_tables`
 - `0005_conv_language`
 - `0006_conversation_customization`
+- `0007_onboarding_assessment`
+- `0008_learning_intelligence`
 
 If you pull new code and get missing-column errors, run:
 

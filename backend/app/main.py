@@ -16,6 +16,7 @@ from app.core.logging import (
 from app.features.analytics.router import router as analytics_router
 from app.features.analysis.router import router as analysis_router
 from app.features.admin.router import router as admin_router
+from app.features.assessment.routes import router as assessment_router
 from app.features.auth.routes import router as auth_router
 from app.features.coaching.router import router as coaching_router
 from app.features.conversations.routes import router as conversations_router
@@ -47,6 +48,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 app.include_router(admin_router)
 app.include_router(analytics_router)
 app.include_router(analysis_router)
+app.include_router(assessment_router)
 app.include_router(auth_router)
 app.include_router(coaching_router)
 app.include_router(conversations_router)

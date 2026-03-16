@@ -24,6 +24,9 @@ class AIChatService:
         scenario_difficulty: str,
         target_language: ConversationLanguage | str,
         conversation_history: Sequence[dict[str, str]],
+        current_level: str | None,
+        skill_breakdown: dict[str, float],
+        mistake_memory: Sequence[dict[str, str | None]],
     ) -> str:
         started_at = time.perf_counter()
         prompt = build_system_prompt(
@@ -33,6 +36,9 @@ class AIChatService:
             scenario_difficulty=scenario_difficulty,
             target_language=target_language,
             conversation_history=conversation_history,
+            current_level=current_level,
+            skill_breakdown=skill_breakdown,
+            mistake_memory=mistake_memory,
         )
         cache_key = cache_service.make_key(
             "ai-response",

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy import JSON, Boolean, DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -14,6 +14,12 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255))
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    assessment_status: Mapped[str] = mapped_column(
+        String(50), default="pending", server_default="pending"
+    )
+    user_level: Mapped[str | None] = mapped_column(String(20), index=True)
+    skill_breakdown: Mapped[dict | None] = mapped_column(JSON)
+    recommended_path: Mapped[list[dict] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -28,5 +34,17 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     skill_metrics: Mapped[list["SkillMetric"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    assessment_sessions: Mapped[list["AssessmentSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    level_history: Mapped[list["UserLevelHistory"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    personalized_lessons: Mapped[list["PersonalizedLesson"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    mistake_memories: Mapped[list["MistakeMemory"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

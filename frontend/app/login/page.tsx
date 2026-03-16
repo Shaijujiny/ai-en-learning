@@ -27,9 +27,12 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await readApiData<{ access_token: string }>(response);
+      const data = await readApiData<{
+        access_token: string;
+        next_route: string;
+      }>(response);
       window.localStorage.setItem("token", data.access_token);
-      router.push("/portal");
+      router.push(data.next_route || "/portal");
     } catch (loginError) {
       setError(
         loginError instanceof Error ? loginError.message : "Unable to log in.",
@@ -51,9 +54,9 @@ export default function LoginPage() {
               Sign in before opening scenarios.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">
-              The login page should focus on authentication only. After login,
-              users are taken into the scenario portal where they can start
-              standard or custom conversations.
+              The login page stays focused on authentication. After login,
+              users are routed either into the onboarding assessment or straight
+              into the portal depending on their learning profile status.
             </p>
             <div className="mt-8 flex gap-3">
               <Link

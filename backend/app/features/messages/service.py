@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.mistake_memory_service import mistake_memory_service
 from app.database.models.message import Message
 from app.database.models.user import User
 from app.features.ai_chat.ai_service import ai_chat_service
@@ -69,6 +70,20 @@ class MessageService:
                 scenario_difficulty=conversation.scenario.difficulty,
                 target_language=conversation.language,
                 conversation_history=conversation_memory,
+                current_level=current_user.user_level,
+                skill_breakdown=current_user.skill_breakdown or {},
+                mistake_memory=[
+                    {
+                        "mistake_type": item.mistake_type,
+                        "hint": item.hint,
+                        "correction": item.correction,
+                    }
+                    for item in mistake_memory_service.top_mistakes(
+                        db=db,
+                        user_id=current_user.id,
+                        limit=4,
+                    )
+                ],
             )
 
             assistant_message = message_repository.create_message(

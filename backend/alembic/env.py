@@ -8,11 +8,16 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config import settings
 from app.database.base import Base
 from app.database.models import (  # noqa: F401
+    assessment_answer,
+    assessment_session,
     conversation,
     message,
+    mistake_memory,
+    personalized_lesson,
     scenario,
     skill_metric,
     user,
+    user_level_history,
     user_score,
 )
 

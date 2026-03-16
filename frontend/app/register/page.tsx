@@ -32,7 +32,12 @@ export default function RegisterPage() {
         }),
       });
 
-      await readApiData<{ user_id: number; email: string }>(registerResponse);
+      await readApiData<{
+        user_id: number;
+        email: string;
+        assessment_status: string;
+        next_route: string;
+      }>(registerResponse);
 
       const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
@@ -40,9 +45,12 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await readApiData<{ access_token: string }>(loginResponse);
+      const data = await readApiData<{
+        access_token: string;
+        next_route: string;
+      }>(loginResponse);
       window.localStorage.setItem("token", data.access_token);
-      router.push("/portal");
+      router.push(data.next_route || "/assessment");
     } catch (registerError) {
       setError(
         registerError instanceof Error
@@ -67,7 +75,8 @@ export default function RegisterPage() {
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">
               Registration is separate from scenario selection. After sign-up,
-              the user is logged in and taken directly to the scenario workspace.
+              the user is logged in and taken into a short English assessment
+              before normal practice begins.
             </p>
             <div className="mt-8 flex gap-3">
               <Link

@@ -26,5 +26,9 @@ class UserProfile(BaseModel):
     email: EmailStr
     full_name: str
     is_active: bool
+    assessment_status: str
+    user_level: str | None = None
+    skill_breakdown: dict | None = None
+    recommended_path: list[dict] | None = None
     created_at: datetime
     updated_at: datetime

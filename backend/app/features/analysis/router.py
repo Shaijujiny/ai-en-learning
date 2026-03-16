@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.analytics_service import analytics_service
+from app.core.cefr_service import cefr_service
 from app.core.fluency_service import fluency_service
 from app.core.grammar_service import grammar_service
+from app.core.lesson_service import lesson_service
+from app.core.mistake_memory_service import mistake_memory_service
 from app.core.vocabulary_service import vocabulary_service
 from app.database.models.conversation import Conversation
 from app.database.models.message import Message
@@ -94,6 +97,19 @@ def analyze_grammar(
         for match in result.get("matches", [])
     ]
 
+    mistake_memory_service.record_grammar_matches(
+        db=db,
+        user=current_user,
+        text=text,
+        matches=result.get("matches", []),
+    )
+    mistake_memory_service.record_repeated_words(
+        db=db,
+        user=current_user,
+        text=text,
+    )
+    db.commit()
+
     response = GrammarAnalysisResponse(
         text=text,
         match_count=len(matches),
@@ -153,6 +169,35 @@ def analyze_fluency(
         skill_name="sentence_complexity",
         metric_value=fluency_result["sentence_complexity_score"],
     )
+    weakest_skill = min(
+        {
+            "grammar_accuracy": float(fluency_result["grammar_accuracy_score"]),
+            "fluency": float(fluency_result["overall_score"]),
+            "sentence_complexity": float(fluency_result["sentence_complexity_score"]),
+        },
+        key=lambda key: {
+            "grammar_accuracy": float(fluency_result["grammar_accuracy_score"]),
+            "fluency": float(fluency_result["overall_score"]),
+            "sentence_complexity": float(fluency_result["sentence_complexity_score"]),
+        }[key],
+    )
+    cefr_service.update_user_level(
+        db=db,
+        user=current_user,
+        overall_score=float(fluency_result["overall_score"]),
+        skill_breakdown={
+            "grammar_accuracy": float(fluency_result["grammar_accuracy_score"]),
+            "fluency": float(fluency_result["overall_score"]),
+            "sentence_complexity": float(fluency_result["sentence_complexity_score"]),
+        },
+        source="fluency_analysis",
+        sample_count=max(fluency_result["sentence_count"], 1),
+    )
+    lesson_service.generate_lessons(
+        db=db,
+        user=current_user,
+        weakest_skill=weakest_skill,
+    )
     db.commit()
 
     response = FluencyAnalysisResponse(
@@ -196,6 +241,37 @@ def analyze_vocabulary(
         user_id=current_user.id,
         skill_name="advanced_vocabulary",
         metric_value=vocabulary_result["advanced_vocabulary_score"],
+    )
+    mistake_memory_service.record_repeated_words(
+        db=db,
+        user=current_user,
+        text=text,
+    )
+    weakest_skill = min(
+        {
+            "word_diversity": float(vocabulary_result["word_diversity_score"]),
+            "advanced_vocabulary": float(vocabulary_result["advanced_vocabulary_score"]),
+        },
+        key=lambda key: {
+            "word_diversity": float(vocabulary_result["word_diversity_score"]),
+            "advanced_vocabulary": float(vocabulary_result["advanced_vocabulary_score"]),
+        }[key],
+    )
+    cefr_service.update_user_level(
+        db=db,
+        user=current_user,
+        overall_score=float(vocabulary_result["overall_score"]),
+        skill_breakdown={
+            "word_diversity": float(vocabulary_result["word_diversity_score"]),
+            "advanced_vocabulary": float(vocabulary_result["advanced_vocabulary_score"]),
+        },
+        source="vocabulary_analysis",
+        sample_count=max(vocabulary_result["word_count"], 1),
+    )
+    lesson_service.generate_lessons(
+        db=db,
+        user=current_user,
+        weakest_skill=weakest_skill,
     )
     db.commit()
 

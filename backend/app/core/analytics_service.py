@@ -4,8 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.database.models.conversation import Conversation
 from app.database.models.message import Message
+from app.database.models.mistake_memory import MistakeMemory
+from app.database.models.personalized_lesson import PersonalizedLesson
 from app.database.models.scenario import Scenario
 from app.database.models.skill_metric import SkillMetric
+from app.database.models.user import User
+from app.database.models.user_level_history import UserLevelHistory
 from app.database.models.user_score import UserScore
 
 
@@ -66,6 +70,7 @@ class AnalyticsService:
         return metric
 
     def build_dashboard(self, *, db: Session, user_id: int) -> dict:
+        user = db.query(User).filter(User.id == user_id).first()
         scores = (
             db.query(UserScore)
             .filter(UserScore.user_id == user_id)
@@ -83,6 +88,31 @@ class AnalyticsService:
             .join(Scenario, Conversation.scenario_id == Scenario.id)
             .filter(Conversation.user_id == user_id)
             .order_by(Conversation.created_at.desc())
+            .all()
+        )
+        level_history = (
+            db.query(UserLevelHistory)
+            .filter(UserLevelHistory.user_id == user_id)
+            .order_by(UserLevelHistory.created_at.desc())
+            .limit(8)
+            .all()
+        )
+        lessons = (
+            db.query(PersonalizedLesson, Scenario.title)
+            .outerjoin(Scenario, PersonalizedLesson.recommended_scenario_id == Scenario.id)
+            .filter(
+                PersonalizedLesson.user_id == user_id,
+                PersonalizedLesson.status == "recommended",
+            )
+            .order_by(PersonalizedLesson.created_at.desc())
+            .limit(5)
+            .all()
+        )
+        mistakes = (
+            db.query(MistakeMemory)
+            .filter(MistakeMemory.user_id == user_id)
+            .order_by(MistakeMemory.occurrence_count.desc(), MistakeMemory.updated_at.desc())
+            .limit(6)
             .all()
         )
 
@@ -124,6 +154,17 @@ class AnalyticsService:
 
         return {
             "performance_score": performance_score,
+            "current_level": user.user_level if user else None,
+            "level_confidence_score": float(level_history[0].confidence_score) if level_history else 0.0,
+            "level_history": [
+                {
+                    "level": item.level,
+                    "confidence_score": float(item.confidence_score),
+                    "source": item.source,
+                    "created_at": item.created_at,
+                }
+                for item in reversed(level_history)
+            ],
             "skill_metrics": [
                 {
                     "skill_name": metric.skill_name,
@@ -136,6 +177,30 @@ class AnalyticsService:
             "improvement_trends": [
                 {"score_type": score_type, "points": points}
                 for score_type, points in trend_by_type.items()
+            ],
+            "personalized_lessons": [
+                {
+                    "id": lesson.id,
+                    "lesson_type": lesson.lesson_type,
+                    "target_skill": lesson.target_skill,
+                    "title": lesson.title,
+                    "instructions": lesson.instructions,
+                    "status": lesson.status,
+                    "recommended_scenario": scenario_title,
+                    "created_at": lesson.created_at,
+                }
+                for lesson, scenario_title in lessons
+            ],
+            "mistake_memory": [
+                {
+                    "mistake_type": mistake.mistake_type,
+                    "mistake_key": mistake.mistake_key,
+                    "hint": mistake.hint,
+                    "correction": mistake.correction,
+                    "occurrence_count": mistake.occurrence_count,
+                    "last_seen_at": mistake.last_seen_at,
+                }
+                for mistake in mistakes
             ],
             "conversation_history": history_items,
         }

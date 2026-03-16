@@ -17,6 +17,8 @@ type User = {
   id: number;
   full_name: string;
   email: string;
+  assessment_status: string;
+  user_level?: string | null;
 };
 
 type ConversationLanguage = "English" | "Spanish" | "French" | "German";
@@ -74,6 +76,11 @@ export default function PortalPage() {
           readApiData<Scenario[]>(scenariosResponse),
         ]);
 
+        if (meData.assessment_status === "pending") {
+          router.replace("/assessment");
+          return;
+        }
+
         setUser(meData);
         setScenarios(scenarioData);
         if (scenarioData.length > 0) {
@@ -85,7 +92,7 @@ export default function PortalPage() {
     }
 
     void loadPortal();
-  }, [token]);
+  }, [router, token]);
 
   async function startConversation(
     scenarioId: number,
@@ -159,6 +166,9 @@ export default function PortalPage() {
                 </p>
                 <p className="mt-1 text-sm text-slate-400">
                   {user?.email ?? "Fetching account"}
+                </p>
+                <p className="mt-3 text-xs uppercase tracking-[0.22em] text-cyan-300">
+                  {user?.user_level ? `Level ${user.user_level}` : "Assessment not completed"}
                 </p>
               </div>
               <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4">
