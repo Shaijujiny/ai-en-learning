@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: backend
+Version: 0.1.0
+Summary: FastAPI backend for the AI interview platform MVP.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: alembic==1.14.1
+Requires-Dist: fastapi==0.115.11
+Requires-Dist: bcrypt==4.2.1
+Requires-Dist: email-validator==2.2.0
+Requires-Dist: openai==1.68.2
+Requires-Dist: psycopg2-binary==2.9.10
+Requires-Dist: pydantic==2.10.6
+Requires-Dist: pydantic-settings==2.8.1
+Requires-Dist: python-jose==3.3.0
+Requires-Dist: python-dotenv==1.0.1
+Requires-Dist: sqlalchemy==2.0.39
+Requires-Dist: uvicorn[standard]==0.34.0
+Provides-Extra: dev
+Requires-Dist: httpx==0.28.1; extra == "dev"
+Requires-Dist: pytest==8.3.5; extra == "dev"
+Requires-Dist: ruff==0.11.0; extra == "dev"
+
+# backend
+
+FastAPI service for the AI interview platform MVP.
+
+## Run locally
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+cp .env.example .env
+alembic upgrade head
+uvicorn app.main:app --reload
+```
+
+## Structure
+
+- `app/core`: configuration and shared backend concerns
+- `app/database`: SQLAlchemy base, session, and models
+- `app/features`: feature-specific routers and logic
