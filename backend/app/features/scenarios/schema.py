@@ -1,3 +1,17 @@
-from app.features.scenarios.schemas import ScenarioResponse
+from datetime import datetime
 
-__all__ = ["ScenarioResponse"]
+from pydantic import BaseModel, ConfigDict
+
+from app.database.models.scenario import ScenarioDifficulty
+
+
+class ScenarioResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    description: str
+    difficulty: ScenarioDifficulty
+    system_prompt: str
+    created_at: datetime
+    updated_at: datetime

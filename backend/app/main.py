@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -6,6 +7,7 @@ from app.core.exceptions import (
     build_response,
     generic_exception_handler,
     http_exception_handler,
+    validation_exception_handler,
 )
 from app.core.logging import (
     RequestLoggingMiddleware,
@@ -40,6 +42,7 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware)
 app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 app.include_router(admin_router)
 app.include_router(analytics_router)

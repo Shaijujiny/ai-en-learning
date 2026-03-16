@@ -34,6 +34,8 @@ class ConversationService:
             custom_prompt=payload.custom_prompt,
         )
         conversation = conversation_repository.create_conversation(db, conversation)
+        db.commit()
+        db.refresh(conversation)
         return ConversationStartResponse.model_validate(conversation).model_dump(mode="json")
 
     def get_conversation(self, db: Session, *, conversation_id: int, current_user: User) -> dict:

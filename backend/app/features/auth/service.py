@@ -17,12 +17,15 @@ class AuthService:
                 detail="Email already exists",
             )
 
-        return auth_repository.create_user(
+        user = auth_repository.create_user(
             db,
             email=email,
             full_name=name,
             hashed_password=hash_password(password),
         )
+        db.commit()
+        db.refresh(user)
+        return user
 
     def login_user(self, db: Session, *, email: str, password: str) -> tuple[User, str]:
         user = auth_repository.get_by_email(db, email)

@@ -10,7 +10,7 @@ class ConversationRepository:
 
     def create_conversation(self, db: Session, conversation: Conversation) -> Conversation:
         db.add(conversation)
-        db.commit()
+        db.flush()
         db.refresh(conversation)
         return conversation
 

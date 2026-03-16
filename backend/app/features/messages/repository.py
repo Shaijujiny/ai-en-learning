@@ -16,7 +16,7 @@ class MessageRepository:
 
     def create_message(self, db: Session, message: Message) -> Message:
         db.add(message)
-        db.commit()
+        db.flush()
         db.refresh(message)
         return message
 
