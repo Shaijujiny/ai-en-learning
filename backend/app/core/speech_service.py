@@ -83,13 +83,17 @@ class SpeechService:
             return transcription
         return {"text": getattr(transcription, "text", "")}
 
-    def synthesize_speech(self, text: str) -> bytes:
+    _VALID_VOICES = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
+
+    def synthesize_speech(self, text: str, *, voice: str | None = None) -> bytes:
         if self._client is None:
             raise RuntimeError("Speech synthesis is unavailable without OPENAI_API_KEY.")
 
+        selected_voice = voice if voice in self._VALID_VOICES else settings.openai_tts_voice
+
         response = self._client.audio.speech.create(
             model=settings.openai_tts_model,
-            voice=settings.openai_tts_voice,
+            voice=selected_voice,
             input=text,
             response_format=settings.openai_tts_format,
         )
@@ -97,7 +101,7 @@ class SpeechService:
         ai_logger.info(
             "speech_synthesized provider=openai model=%s voice=%s format=%s",
             settings.openai_tts_model,
-            settings.openai_tts_voice,
+            selected_voice,
             settings.openai_tts_format,
         )
         return response.read()

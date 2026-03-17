@@ -12,7 +12,6 @@ from app.database.models.speaking_analysis import SpeakingAnalysis
 from app.database.models.user import User
 from app.database.session import get_db
 from app.features.auth.dependencies import get_current_user
-from app.features.credits.dependencies import require_credits
 from app.features.speaking.schemas import SpeakingAnalysisResponse
 from app.utils.helpers import build_response
 
@@ -70,7 +69,6 @@ async def analyze_speaking(
     prompt: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_credits),
 ):
     if not speech_service.available:
         raise HTTPException(

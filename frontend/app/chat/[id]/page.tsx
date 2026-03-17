@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { readApiData } from "@/lib/api";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /* ─── Types ─── */
 type Message = {
@@ -42,6 +43,18 @@ type CoachFeedback = {
   interview_answer_suggestions: string[];
 };
 
+/* ─── Voice options ─── */
+type VoiceId = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+
+const VOICE_OPTIONS: { id: VoiceId; label: string; gender: string; style: string; icon: string }[] = [
+  { id: "nova",    label: "Nova",    gender: "Female", style: "Warm & clear",     icon: "👩" },
+  { id: "shimmer", label: "Shimmer", gender: "Female", style: "Soft & gentle",    icon: "🌸" },
+  { id: "alloy",   label: "Alloy",   gender: "Neutral", style: "Balanced",        icon: "🤖" },
+  { id: "echo",    label: "Echo",    gender: "Male",   style: "Natural",          icon: "👨" },
+  { id: "fable",   label: "Fable",   gender: "Male",   style: "British accent",   icon: "🎩" },
+  { id: "onyx",    label: "Onyx",    gender: "Male",   style: "Deep & confident", icon: "🎙️" },
+];
+
 /* ─── Coach personality modes ─── */
 type CoachMode = "friendly" | "strict" | "casual";
 
@@ -79,11 +92,10 @@ function formatTimestamp(ts: string) {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-/* ─── Animated typing dots ─── */
 function TypingIndicator({ mode }: { mode: CoachMode }) {
   const m = COACH_MODES[mode];
   return (
-    <div className="flex items-end gap-3 max-w-[80%]">
+    <div className="flex items-end gap-3 max-w-[90%] sm:max-w-[85%] md:max-w-[80%]">
       <div className={`flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full ${m.avatarGrad} text-slate-950 text-xs font-bold shadow-lg`}>
         {m.icon}
       </div>
@@ -278,11 +290,21 @@ export default function ChatPage() {
   const [rubric, setRubric] = useState<RubricResponse | null>(null);
   const [scoring, setScoring] = useState(false);
   const [rewritingMode, setRewritingMode] = useState<string | null>(null);
-  const [credits, setCredits] = useState<{ remaining: number; total: number } | null>(null);
+  const [credits, setCredits] = useState<{
+    remaining: number;
+    total: number;
+    messages_today: number;
+    messages_until_next_deduction: number;
+  } | null>(null);
   const creditsRemaining = credits?.remaining ?? 20;
   const creditsTotal = credits?.total ?? 20;
+  const msgsUntilNext = credits?.messages_until_next_deduction ?? 5;
   const [reactions, setReactions] = useState<Record<number, string>>({});
   const [showReactionFor, setShowReactionFor] = useState<number | null>(null);
+
+  /* ─── Voice state ─── */
+  const [voiceId, setVoiceId] = useState<VoiceId>("nova");
+  const [showVoicePanel, setShowVoicePanel] = useState(false);
 
   /* ─── Coach state ─── */
   const [coachMode, setCoachMode] = useState<CoachMode>("friendly");
@@ -383,12 +405,13 @@ export default function ChatPage() {
       const res = await fetch(`${API_BASE_URL}/messages/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ conversation_id: conversation.id, content: sentText }),
+        body: JSON.stringify({ conversation_id: conversation.id, content: sentText, coach_mode: coachEnabled ? coachMode : null }),
       });
       const data = await readApiData<{ user_message: Message; ai_message: Message }>(res);
       setConversation({ ...conversation, messages: [...conversation.messages, data.user_message, data.ai_message] });
       setMessage("");
       void playAiReply(data.ai_message);
+      void refreshCredits();
       setTimeout(() => inputRef.current?.focus(), 100);
       // Trigger coaching feedback after sending
       void fetchCoachFeedback(sentText, data.user_message.id);
@@ -495,7 +518,7 @@ export default function ChatPage() {
       const res = await fetch(`${API_BASE_URL}/speech/synthesize`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ text: aiMessage.content }),
+        body: JSON.stringify({ text: aiMessage.content, voice: voiceId }),
       });
       if (!res.ok) throw new Error("Playback failed.");
       const blob = await res.blob();
@@ -528,6 +551,8 @@ export default function ChatPage() {
         @keyframes waveBar { from{transform:scaleY(0.4)} to{transform:scaleY(1)} }
         @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(105,226,255,0.4)} 70%{box-shadow:0 0 0 8px rgba(105,226,255,0)} 100%{box-shadow:0 0 0 0 rgba(105,226,255,0)} }
+        /* Hide the global floating toggle on this page — it lives in the topbar instead */
+        .theme-toggle-wrapper { display: none !important; }
       `}</style>
 
       <main className="app-shell grid-overlay flex h-screen flex-col overflow-hidden text-slate-100">
@@ -535,7 +560,7 @@ export default function ChatPage() {
         {/* ─── Topbar ─── */}
         <header className="flex items-center justify-between border-b border-white/8 px-4 py-3 md:px-6 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/portal" className="flex-shrink-0 flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:border-cyan-300/30 hover:text-white transition">
+            <Link href="/portal" className="flex-shrink-0 flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/50 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-medium text-slate-300 shadow-sm hover:border-cyan-300/30 hover:bg-white/10 hover:text-white transition">
               ← Back
             </Link>
             <div className="hidden sm:block min-w-0">
@@ -544,19 +569,19 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             {/* Coach mode button */}
             <div className="relative">
               <button
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  coachEnabled ? `${currentMode.borderColor} bg-white/5 ${currentMode.color}` : "border-white/10 bg-white/5 text-slate-500"
+                className={`flex items-center gap-1.5 sm:gap-2 rounded-full border px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold tracking-wide transition shadow-lg ${
+                  coachEnabled ? `${currentMode.borderColor} bg-slate-950/50 backdrop-blur-md ${currentMode.color}` : "border-white/10 bg-slate-950/50 backdrop-blur-md text-slate-400"
                 }`}
                 onClick={() => setShowModePanel((p) => !p)}
                 type="button"
               >
-                <span>{currentMode.icon}</span>
+                <span className="text-sm">{currentMode.icon}</span>
                 <span className="hidden sm:inline">{currentMode.label}</span>
-                <span className="text-slate-500">▾</span>
+                <span className="text-slate-500 opacity-80">▾</span>
               </button>
 
               {/* Coach mode panel */}
@@ -596,43 +621,86 @@ export default function ChatPage() {
               )}
             </div>
 
-            {/* Credits pill */}
-            <div className="flex flex-col items-end gap-0.5">
-              <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                <span className="text-xs">🔥</span>
-                <div className="h-1.5 w-12 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${creditsRemaining === 0 ? "bg-rose-400" : "bg-[linear-gradient(90deg,#69e2ff,#a7f3d0)]"}`}
-                    style={{ width: `${(creditsRemaining / creditsTotal) * 100}%` }}
-                  />
+            {/* Voice selector */}
+            <div className="relative">
+              <button
+                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/50 backdrop-blur-md px-3 py-2 text-[11px] font-semibold text-slate-300 shadow-lg hover:border-cyan-300/30 hover:text-white transition"
+                onClick={() => { setShowVoicePanel((p) => !p); setShowModePanel(false); }}
+                type="button"
+                title="Change AI voice"
+              >
+                <span>{VOICE_OPTIONS.find((v) => v.id === voiceId)?.icon ?? "🔊"}</span>
+                <span className="hidden sm:inline">{VOICE_OPTIONS.find((v) => v.id === voiceId)?.label ?? "Voice"}</span>
+                <span className="text-slate-500 opacity-80">▾</span>
+              </button>
+
+              {showVoicePanel && (
+                <div className="absolute right-0 top-full mt-2 z-20 w-64 rounded-[1.5rem] border border-white/10 bg-slate-950/95 backdrop-blur-xl p-3 shadow-2xl"
+                  style={{ animation: "slideUp 0.2s ease both" }}>
+                  <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400 px-2 pb-2 mb-1 border-b border-white/8">AI Voice</p>
+                  {VOICE_OPTIONS.map((v) => (
+                    <button
+                      key={v.id}
+                      className={`w-full flex items-center gap-3 rounded-[1.2rem] border px-3 py-2.5 text-left transition mb-1 ${
+                        voiceId === v.id ? "border-cyan-300/25 bg-cyan-500/10" : "border-transparent hover:bg-white/5"
+                      }`}
+                      onClick={() => { setVoiceId(v.id); setShowVoicePanel(false); }}
+                      type="button"
+                    >
+                      <span className="text-xl w-7 text-center">{v.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white">{v.label}
+                          <span className="ml-1.5 text-[10px] font-normal text-slate-500">{v.gender}</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500">{v.style}</p>
+                      </div>
+                      {voiceId === v.id && <span className="text-cyan-400 text-sm">✓</span>}
+                    </button>
+                  ))}
                 </div>
-                <span className={`text-xs font-semibold ${creditsRemaining === 0 ? "text-rose-300" : "text-slate-300"}`}>
-                  {creditsRemaining}/{creditsTotal}
-                </span>
+              )}
+            </div>
+
+            {/* Credits pill */}
+            <div
+              className="hidden sm:flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/50 backdrop-blur-md px-3 sm:px-4 py-2 shadow-lg"
+              title={`${creditsRemaining}/${creditsTotal} daily credits · Next deduction in ${msgsUntilNext} message${msgsUntilNext === 1 ? "" : "s"} · Resets tomorrow`}
+            >
+              <span className="text-xs sm:text-sm -mt-0.5">🔥</span>
+              <div className="h-1.5 w-12 sm:w-16 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${creditsRemaining === 0 ? "bg-rose-400" : "bg-[linear-gradient(90deg,#69e2ff,#a7f3d0)]"}`}
+                  style={{ width: `${(creditsRemaining / creditsTotal) * 100}%` }}
+                />
               </div>
-              <span className="text-[9px] text-slate-600 pr-1">voice &amp; coaching</span>
+              <span className={`text-[10px] sm:text-xs font-bold font-mono tracking-tight ${creditsRemaining === 0 ? "text-rose-300" : "text-slate-300"}`}>
+                {creditsRemaining}/{creditsTotal}
+              </span>
             </div>
 
             {/* Status */}
-            <div className={`hidden sm:block rounded-full border px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] ${
-              recording ? "border-rose-300/30 bg-rose-500/10 text-rose-200" :
-              transcribing ? "border-amber-300/30 bg-amber-500/10 text-amber-200" :
-              sending ? "border-cyan-300/30 bg-cyan-500/10 text-cyan-200" :
-              fetchingCoach ? "border-violet-300/30 bg-violet-500/10 text-violet-200" :
-              "border-white/10 bg-white/5 text-slate-500"
+            <div className={`hidden md:flex items-center justify-center rounded-full border px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest shadow-lg ${
+              recording ? "border-rose-300/30 bg-rose-500/10 backdrop-blur-md text-rose-200" :
+              transcribing ? "border-amber-300/30 bg-amber-500/10 backdrop-blur-md text-amber-200" :
+              sending ? "border-cyan-300/30 bg-cyan-500/10 backdrop-blur-md text-cyan-200" :
+              fetchingCoach ? "border-violet-300/30 bg-violet-500/10 backdrop-blur-md text-violet-200" :
+              "border-white/10 bg-slate-950/50 backdrop-blur-md text-slate-500"
             }`}>
               {recording ? "🔴 Rec" : transcribing ? "⏳ Transcribing" : sending ? "💭 Thinking" : fetchingCoach ? "🧠 Coaching" : "● Ready"}
             </div>
 
-            <Link href="/dashboard" className="hidden md:block rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:border-cyan-300/30 hover:text-white transition">
+            <Link href="/dashboard" className="hidden lg:flex items-center justify-center rounded-full border border-white/10 bg-slate-950/50 backdrop-blur-md px-4 py-2 text-xs font-semibold text-slate-300 shadow-lg hover:border-cyan-300/30 hover:bg-white/10 hover:text-white transition">
               Progress
             </Link>
+
+            {/* Theme toggle — embedded here, global floating one is hidden on this page */}
+            <ThemeToggle />
           </div>
         </header>
 
         {/* ─── Overlay close for mode panel ─── */}
-        {showModePanel && (
-          <div className="fixed inset-0 z-10" onClick={() => setShowModePanel(false)} />
+        {(showModePanel || showVoicePanel) && (
+          <div className="fixed inset-0 z-10" onClick={() => { setShowModePanel(false); setShowVoicePanel(false); }} />
         )}
 
         {/* ─── Messages Area ─── */}
@@ -694,7 +762,7 @@ export default function ChatPage() {
                     </div>
                   )}
 
-                  <div className="group flex flex-col gap-1.5 max-w-[80%]">
+                  <div className="group flex flex-col gap-1.5 max-w-[90%] sm:max-w-[85%] md:max-w-[80%]">
                     <p className={`text-[10px] uppercase tracking-[0.2em] text-slate-600 ${isUser ? "text-right" : ""}`}>
                       {isUser ? "You" : currentMode.label} · {formatTimestamp(entry.created_at)}
                     </p>
@@ -710,7 +778,7 @@ export default function ChatPage() {
                       )}
                     </div>
 
-                    <div className={`flex items-center gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
+                    <div className={`flex items-center gap-2 mt-0.5 ${isUser ? "flex-row-reverse" : ""}`}>
                       {!isUser && (
                         <button
                           className={`rounded-full border px-3 py-1 text-[10px] font-medium transition ${
@@ -726,14 +794,14 @@ export default function ChatPage() {
                       {/* Reaction picker */}
                       <div className="relative">
                         <button
-                          className="rounded-full border border-white/8 bg-white/4 px-2 py-1 text-[11px] text-slate-500 opacity-0 group-hover:opacity-100 hover:text-white transition"
+                          className="rounded-full border border-white/8 bg-white/4 px-2 py-1 text-[11px] text-slate-500 opacity-100 md:opacity-0 group-hover:opacity-100 hover:text-white transition"
                           onClick={() => setShowReactionFor(showReactionFor === entry.id ? null : entry.id)}
                           type="button"
                         >
                           {hasReaction || "＋"}
                         </button>
                         {showReactionFor === entry.id && (
-                          <div className="absolute bottom-8 left-0 z-10 flex gap-1.5 rounded-[1.2rem] border border-white/10 bg-slate-900 p-2 shadow-xl">
+                          <div className={`absolute bottom-8 ${isUser ? "right-0" : "left-0"} z-10 flex gap-1.5 rounded-[1.2rem] border border-white/10 bg-slate-900 p-2 shadow-xl`}>
                             {REACTIONS.map((r) => (
                               <button key={r} className="rounded-lg p-1.5 text-lg hover:bg-white/10 transition"
                                 onClick={() => { setReactions((p) => ({ ...p, [entry.id]: r })); setShowReactionFor(null); }}
@@ -777,9 +845,39 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
 
             {creditsRemaining === 0 && (
-              <div className="rounded-[1.5rem] border border-amber-400/20 bg-amber-500/8 px-5 py-4 text-center">
-                <p className="text-sm font-medium text-amber-200">Voice & advanced coaching credits used up</p>
-                <p className="mt-1 text-xs text-slate-500">Basic chat is still unlimited — keep practicing!</p>
+              <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md px-6"
+                style={{ animation: "slideUp 0.4s cubic-bezier(0.22,1,0.36,1) both" }}>
+                <div className="w-full max-w-sm rounded-[2rem] border border-rose-300/20 bg-slate-950 p-8 text-center shadow-2xl">
+                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-rose-300/20 bg-rose-500/10 text-3xl">
+                    🌙
+                  </div>
+                  <h2 className="text-xl font-bold text-white mb-2">Today&apos;s limit reached</h2>
+                  <p className="text-sm text-slate-400 leading-6 mb-1">
+                    You&apos;ve used all <span className="text-white font-semibold">20 credits</span> for today.
+                  </p>
+                  <p className="text-sm text-slate-400 leading-6 mb-6">
+                    Your credits reset every day at midnight.<br />
+                    Come back tomorrow to continue! 🚀
+                  </p>
+                  <div className="rounded-[1.3rem] border border-white/8 bg-white/4 px-4 py-3 mb-5">
+                    <p className="text-[11px] text-slate-500 mb-1">Resets in</p>
+                    <p className="text-lg font-bold text-cyan-300">
+                      {(() => {
+                        const now = new Date();
+                        const midnight = new Date();
+                        midnight.setDate(midnight.getDate() + 1);
+                        midnight.setHours(0, 0, 0, 0);
+                        const diff = midnight.getTime() - now.getTime();
+                        const h = Math.floor(diff / 3600000);
+                        const m = Math.floor((diff % 3600000) / 60000);
+                        return `${h}h ${m}m`;
+                      })()}
+                    </p>
+                  </div>
+                  <Link href="/portal" className="block w-full rounded-[1.3rem] bg-[linear-gradient(135deg,#69e2ff,#a7f3d0)] py-3 text-sm font-bold text-slate-950 hover:opacity-90 transition">
+                    Go to Home
+                  </Link>
+                </div>
               </div>
             )}
           </div>
@@ -884,26 +982,31 @@ export default function ChatPage() {
 
               <input
                 ref={inputRef}
-                className="flex-1 min-w-0 rounded-[1.2rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/30 transition"
+                className="flex-1 min-w-0 rounded-[1.2rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder={coachMode === "strict" ? "Respond clearly and concisely…" : coachMode === "casual" ? "Just say what you think…" : "Type your response…"}
+                placeholder={creditsRemaining === 0 ? "No credits left — resets tomorrow…" : coachMode === "strict" ? "Respond clearly and concisely…" : coachMode === "casual" ? "Just say what you think…" : "Type your response…"}
                 value={message}
-                disabled={false}
+                disabled={creditsRemaining === 0}
               />
 
               <button
                 className="flex-shrink-0 rounded-[1.2rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-5 py-3 text-sm font-bold text-slate-950 transition hover:scale-[1.03] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={sending || transcribing || !message.trim() || !canAct}
+                disabled={sending || transcribing || !message.trim() || !canAct || creditsRemaining === 0}
                 type="submit"
               >
                 {sending ? <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-slate-950" /> : "Send"}
               </button>
             </form>
 
-            {/* Coach mode hint */}
-            {coachEnabled && (
+            {/* Coach mode hint / credit hint */}
+            {creditsRemaining > 0 ? (
               <p className="text-center text-[10px] text-slate-600">
-                {currentMode.icon} {currentMode.label} mode · Live feedback after each message
+                {coachEnabled ? `${currentMode.icon} ${currentMode.label} mode · ` : ""}
+                🔥 {creditsRemaining}/{creditsTotal} credits · next deduction in {msgsUntilNext} msg{msgsUntilNext === 1 ? "" : "s"} · resets daily
+              </p>
+            ) : (
+              <p className="text-center text-[10px] text-rose-500">
+                No credits left today — resets at midnight 🌙
               </p>
             )}
           </div>

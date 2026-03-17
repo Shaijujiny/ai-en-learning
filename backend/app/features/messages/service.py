@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.credit_service import credit_service
 from app.core.mistake_memory_service import mistake_memory_service
 from app.database.models.message import Message
 from app.database.models.user import User
@@ -29,6 +30,9 @@ class MessageService:
                 detail="Conversation not found",
             )
         try:
+            # Deduct credit: every 5 messages = 1 credit. Blocks at 0.
+            credit_service.consume_message(db, user_id=current_user.id)
+
             user_message = message_repository.create_message(
                 db,
                 Message(
@@ -48,11 +52,33 @@ class MessageService:
             ]
             conversation_memory = history[-settings.ai_conversation_memory_limit :]
 
+            _COACH_PERSONALITIES: dict[str, str] = {
+                "friendly": (
+                    "PERSONALITY: Be warm, encouraging, and patient. "
+                    "Celebrate small wins. Give detailed, supportive explanations. "
+                    "Correct mistakes gently with examples."
+                ),
+                "strict": (
+                    "PERSONALITY: Be professional and demanding. Hold high standards. "
+                    "Point out every mistake directly and clearly. No easy passes — "
+                    "push the user to do better."
+                ),
+                "casual": (
+                    "PERSONALITY: Be relaxed and conversational, like a friend. "
+                    "Keep things light and fun. Encourage naturally without formal structure."
+                ),
+            }
+
             effective_system_prompt = conversation.scenario.system_prompt
             if conversation.custom_prompt:
                 effective_system_prompt = (
                     f"{conversation.scenario.system_prompt}\n\n"
                     f"Additional conversation instructions:\n{conversation.custom_prompt}"
+                )
+            if payload.coach_mode and payload.coach_mode in _COACH_PERSONALITIES:
+                effective_system_prompt = (
+                    f"{effective_system_prompt}\n\n"
+                    f"{_COACH_PERSONALITIES[payload.coach_mode]}"
                 )
 
             effective_title = conversation.custom_title or conversation.scenario.title

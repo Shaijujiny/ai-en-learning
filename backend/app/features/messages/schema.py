@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class MessageSendRequest(BaseModel):
     conversation_id: int
     content: str = Field(min_length=1, max_length=4000)
+    coach_mode: str | None = None  # "friendly" | "strict" | "casual"
 
 
 class MessageRecordResponse(BaseModel):

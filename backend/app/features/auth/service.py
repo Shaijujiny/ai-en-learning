@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.cache import cache_service
 from app.core.config import settings
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
 from app.database.models.user import User
 from app.features.auth.repository import auth_repository
 
@@ -27,7 +27,7 @@ class AuthService:
         db.refresh(user)
         return user
 
-    def login_user(self, db: Session, *, email: str, password: str) -> tuple[User, str]:
+    def login_user(self, db: Session, *, email: str, password: str) -> tuple[User, str, str]:
         user = auth_repository.get_by_email(db, email)
         if user is None or not verify_password(password, user.hashed_password):
             raise HTTPException(
@@ -37,6 +37,8 @@ class AuthService:
             )
 
         access_token = create_access_token(user.email)
+        refresh_token = create_refresh_token(user.email)
+        
         cache_service.set_json(
             f"session:{access_token}",
             {
@@ -47,7 +49,7 @@ class AuthService:
             },
             settings.redis_session_ttl_seconds,
         )
-        return user, access_token
+        return user, access_token, refresh_token
 
 
 auth_service = AuthService()

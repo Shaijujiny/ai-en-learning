@@ -48,13 +48,21 @@ export default function LoginPage() {
 
       const data = await readApiData<{
         access_token: string;
+        refresh_token?: string;
         next_route: string;
       }>(response);
 
       setAttempts(0);
       setLockoutUntil(null);
       window.localStorage.setItem("token", data.access_token);
-      router.push(data.next_route || "/portal");
+      if (data.refresh_token) {
+        window.localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      // Set cookie so middleware can protect routes server-side
+      const maxAge = 60 * 60 * 24 * 7; // 7 days
+      document.cookie = `auth_token=${data.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next || data.next_route || "/portal");
     } catch (loginError) {
       setError(
         loginError instanceof Error ? loginError.message : "Unable to log in.",
@@ -65,68 +73,78 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="app-shell grid-overlay min-h-screen px-5 py-6 text-slate-100 md:px-8 md:py-8">
-      <section className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-5xl items-center">
+    <main className="app-shell grid-overlay min-h-screen px-4 py-6 text-slate-100 md:px-8 flex items-center justify-center relative overflow-hidden">
+      {/* Background Orbs */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+
+      <section className="w-full max-w-5xl z-10">
         <div className="grid w-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="glass-panel rounded-[2rem] p-8 md:p-10">
-            <p className="text-xs uppercase tracking-[0.34em] text-cyan-300">
-              User Login
-            </p>
-            <h1 className="display mt-4 text-5xl font-semibold text-white">
-              Sign in before opening scenarios.
+          <div className="glass-panel rounded-[2.5rem] p-8 md:p-12 border border-white/5 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col justify-center">
+            <div className="inline-block px-3 py-1 mb-6 rounded-full border border-cyan-400/20 bg-cyan-500/10 w-max">
+                <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] font-medium text-cyan-300">
+                Welcome Back
+                </p>
+            </div>
+            <h1 className="display text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1]">
+              Resume your <br/><span className="text-transparent bg-clip-text bg-[linear-gradient(90deg,#69e2ff,#a7f3d0)]">English journey.</span>
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">
-              The login page stays focused on authentication. After login,
-              users are routed either into the onboarding assessment or straight
-              into the portal depending on their learning profile status.
+            <p className="mt-6 text-base lg:text-lg text-slate-400 leading-relaxed font-light">
+              Sign in to continue practicing with our advanced AI avatars. Dive back into Interview Mode or start a new Real Life scenario right where you left off.
             </p>
-            <div className="mt-8 flex gap-3">
+            <div className="mt-10 flex flex-wrap gap-4">
               <Link
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200"
+                className="rounded-full border border-white/10 bg-white/5 hover:bg-white/10 px-6 py-3 text-sm font-medium text-slate-200 transition shadow-sm"
                 href="/register"
               >
-                Create account
+                Create new account
               </Link>
               <Link
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200"
+                className="rounded-full border border-transparent px-6 py-3 text-sm font-medium text-slate-400 hover:text-white transition"
                 href="/"
               >
-                Back home
+                ← Back home
               </Link>
             </div>
           </div>
 
-          <form className="glass-panel rounded-[2rem] p-8" onSubmit={handleSubmit}>
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-400">
-              Access
-            </p>
-            <div className="mt-6 space-y-4">
-              <input
-                className="w-full rounded-[1.25rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="Email"
-                type="email"
-                value={email}
-              />
-              <input
-                className="w-full rounded-[1.25rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Password"
-                type="password"
-                value={password}
-              />
+          <form className="glass-panel rounded-[2.5rem] p-8 md:p-12 border border-white/5 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col justify-center" onSubmit={handleSubmit}>
+            <h2 className="text-2xl font-bold text-white mb-2">Account Login</h2>
+            <p className="text-sm text-slate-400 mb-8">Enter your credentials to securely access your portal.</p>
+            
+            <div className="space-y-4">
+              <div>
+                  <input
+                    className="w-full rounded-[1.25rem] border border-white/10 bg-slate-900/80 px-5 py-4 text-white outline-none transition focus:border-cyan-400/50 focus:bg-slate-900 focus:shadow-[0_0_15px_rgba(34,211,238,0.1)] placeholder:text-slate-500"
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="Email address"
+                    type="email"
+                    value={email}
+                  />
+              </div>
+              <div>
+                  <input
+                    className="w-full rounded-[1.25rem] border border-white/10 bg-slate-900/80 px-5 py-4 text-white outline-none transition focus:border-cyan-400/50 focus:bg-slate-900 focus:shadow-[0_0_15px_rgba(34,211,238,0.1)] placeholder:text-slate-500"
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Password"
+                    type="password"
+                    value={password}
+                  />
+              </div>
               <button
-                className="w-full rounded-[1.3rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-4 py-3 font-medium text-slate-950 disabled:opacity-50"
+                className="w-full rounded-[1.25rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-5 py-4 font-bold text-slate-950 shadow-[0_4px_14px_rgba(105,226,255,0.3)] transition hover:shadow-[0_6px_20px_rgba(105,226,255,0.4)] disabled:opacity-50 disabled:shadow-none mt-2 text-sm sm:text-base"
                 disabled={loading || !email || !password}
                 type="submit"
               >
-                {loading ? "Signing in..." : "Login"}
+                {loading ? "Authenticating..." : "Sign In →"}
               </button>
             </div>
+            
             {error ? (
-              <p className="mt-4 rounded-[1.25rem] border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+              <div className="mt-6 rounded-[1rem] border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 flex items-center gap-3">
+                <span className="text-rose-400 text-lg">⚠️</span>
                 {error}
-              </p>
+              </div>
             ) : null}
           </form>
         </div>

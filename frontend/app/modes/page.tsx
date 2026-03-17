@@ -158,7 +158,7 @@ export default function ModesPage() {
 
           {/* Bottom nav */}
           <div style={{ animation: "fadeUp 0.4s ease 0.35s both" }}
-            className="grid grid-cols-3 gap-3 md:grid-cols-5">
+            className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-5 gap-3">
             {[
               { href: "/portal",     label: "🏠 Home" },
               { href: "/daily",      label: "📅 Daily" },

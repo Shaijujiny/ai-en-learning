@@ -17,7 +17,19 @@ def verify_password(password: str, hashed_password: str) -> bool:
 def create_access_token(subject: str) -> str:
     expires_delta = timedelta(minutes=settings.jwt_access_token_expire_minutes)
     expire = datetime.now(UTC) + expires_delta
-    payload = {"sub": subject, "exp": expire}
+    payload = {"sub": subject, "exp": expire, "type": "access"}
+    return jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def create_refresh_token(subject: str) -> str:
+    """Long-lived token (7 days) used only to obtain a new access token."""
+    expires_delta = timedelta(days=7)
+    expire = datetime.now(UTC) + expires_delta
+    payload = {"sub": subject, "exp": expire, "type": "refresh"}
     return jwt.encode(
         payload,
         settings.jwt_secret_key,

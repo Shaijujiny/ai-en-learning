@@ -517,8 +517,8 @@ export default function AssessmentPage() {
                   <button
                     className={`flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition ${
                       isRecording
-                        ? "bg-rose-500 text-white animate-pulse"
-                        : "bg-white text-slate-950 hover:bg-cyan-200"
+                        ? "bg-rose-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.4)] animate-pulse"
+                        : "bg-[linear-gradient(135deg,#69e2ff,#a7f3d0)] text-slate-950 shadow-[0_0_14px_rgba(105,226,255,0.35)] hover:scale-[1.02]"
                     }`}
                     onClick={isRecording ? stopRecording : () => void startRecording()}
                     type="button"
@@ -623,7 +623,7 @@ export default function AssessmentPage() {
 
                         <div className="flex gap-3">
                           <button
-                            className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-cyan-200 transition"
+                            className="flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#69e2ff,#a7f3d0)] px-5 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_14px_rgba(105,226,255,0.3)] hover:scale-[1.02] transition"
                             onClick={() => playListeningText(item.text)}
                             type="button"
                           >

@@ -335,8 +335,8 @@ export default function ReplayPage() {
           {conversation && (
             <>
               {/* Stats + controls */}
-              <div className="anim grid grid-cols-3 gap-3">
-                <div className="ds-card-flat rounded-[1.5rem] text-center">
+              <div className="anim grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="ds-card-flat rounded-[1.5rem] text-center px-2">
                   <p className="text-2xl font-black text-white">{userMessages.length}</p>
                   <p className="ds-label mt-1">Your answers</p>
                 </div>

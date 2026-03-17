@@ -288,7 +288,7 @@ export default function AssessmentResultPage() {
                 {result.recommended_first_scenario_id && (
                   <Link
                     href="/portal"
-                    className="mt-4 inline-block rounded-full bg-white px-5 py-2 text-sm font-bold text-slate-950 hover:bg-cyan-200 transition"
+                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#69e2ff,#a7f3d0)] px-5 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_16px_rgba(105,226,255,0.35)] hover:scale-[1.02] hover:shadow-[0_0_24px_rgba(105,226,255,0.5)] transition"
                   >
                     ▶ Start this scenario
                   </Link>
@@ -365,13 +365,13 @@ export default function AssessmentResultPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Link
               href="/portal"
-              className="rounded-[1.4rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-5 py-4 text-center text-sm font-bold text-slate-950 transition hover:scale-[1.01]"
+              className="rounded-[1.4rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-5 py-4 text-center text-sm font-bold text-slate-950 shadow-[0_0_18px_rgba(105,226,255,0.3)] transition hover:scale-[1.01] hover:shadow-[0_0_28px_rgba(105,226,255,0.45)]"
             >
               ▶ Start Practicing
             </Link>
             <Link
               href="/dashboard"
-              className="rounded-[1.4rem] border border-white/10 bg-white/5 px-5 py-4 text-center text-sm font-medium text-white transition hover:border-cyan-300/25 hover:text-white"
+              className="rounded-[1.4rem] border border-violet-400/30 bg-violet-500/10 px-5 py-4 text-center text-sm font-semibold text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/18 hover:text-white"
             >
               📊 View Progress
             </Link>

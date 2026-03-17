@@ -126,7 +126,7 @@ async def synthesize_speech(
         )
 
     try:
-        audio_bytes = speech_service.synthesize_speech(payload.text)
+        audio_bytes = speech_service.synthesize_speech(payload.text, voice=payload.voice)
         return Response(
             content=audio_bytes,
             media_type=speech_service.tts_content_type,

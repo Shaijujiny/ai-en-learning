@@ -10,7 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database.models.mistake_memory import MistakeMemory
-from app.database.models.scenario import Scenario, ScenarioDifficulty
+from app.database.models.scenario import Scenario
 from app.database.models.user import User
 from app.database.models.user_score import UserScore
 
@@ -58,6 +58,12 @@ _REASON_TEMPLATES = {
 
 class PersonalizationService:
 
+    @staticmethod
+    def _difficulty_str(scenario: "Scenario") -> str:
+        """Return the difficulty as a plain string, whether it's an Enum or already a str."""
+        d = scenario.difficulty
+        return d.value if hasattr(d, "value") else str(d)
+
     def _user_difficulty(self, user: User) -> str | None:
         level = (user.user_level or "").upper()
         return _LEVEL_TO_DIFFICULTY.get(level)
@@ -104,7 +110,7 @@ class PersonalizationService:
         reasons: list[str] = []
 
         # Level match
-        if preferred_difficulty and scenario.difficulty.value == preferred_difficulty:
+        if preferred_difficulty and self._difficulty_str(scenario) == preferred_difficulty:
             score += 4.0
             reasons.append(_REASON_TEMPLATES["level_match"].format(level=preferred_difficulty))
 
@@ -173,7 +179,7 @@ class PersonalizationService:
                     "scenario_id": s.id,
                     "title": s.title,
                     "description": s.description,
-                    "difficulty": s.difficulty.value,
+                    "difficulty": self._difficulty_str(s),
                     "reason": reasons[0] if reasons else "Great practice",
                     "relevance_score": round(sc, 1),
                 }

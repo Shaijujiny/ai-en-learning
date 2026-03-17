@@ -18,7 +18,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ───────────────────────────────────────────────────────────────────
-   1. CSS CUSTOM PROPERTIES (TOKENS)
+   1. CSS CUSTOM PROPERTIES (TOKENS) — DARK (default)
    ─────────────────────────────────────────────────────────────────── */
 :root {
   color-scheme: dark;
@@ -97,9 +97,77 @@
 
 
 /* ───────────────────────────────────────────────────────────────────
+   1b. LIGHT THEME OVERRIDES
+   Applied when <html data-theme="light"> is set
+   ─────────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* ── Surfaces ── */
+  --bg:             #f0f4f8;
+  --surface:        rgba(0, 0, 0, 0.04);
+  --surface-hover:  rgba(0, 0, 0, 0.07);
+  --surface-raised: rgba(0, 0, 0, 0.05);
+  --border:         rgba(30, 60, 100, 0.12);
+  --border-subtle:  rgba(30, 60, 100, 0.07);
+  --border-strong:  rgba(30, 60, 100, 0.22);
+
+  /* ── Text ── */
+  --text:         #0e1c2e;
+  --text-muted:   #4a6080;
+  --text-dim:     #94a3b8;
+  --text-on-fill: #050b13;
+
+  /* ── Shadows ── */
+  --shadow:    0 16px 48px rgba(14, 28, 46, 0.12);
+  --shadow-sm: 0 4px  16px rgba(14, 28, 46, 0.08);
+  --shadow-xs: 0 2px   6px rgba(14, 28, 46, 0.06);
+
+  /* ── Primary — same cyan, slightly richer ── */
+  --primary:          #0ea5e9;
+  --primary-end:      #22d3ee;
+  --primary-bg:       rgba(14, 165, 233, 0.10);
+  --primary-border:   rgba(14, 165, 233, 0.25);
+  --primary-text:     #0284c7;
+  --primary-gradient: linear-gradient(135deg, #0ea5e9 0%, #22d3ee 100%);
+  --primary-glow:     0 0 16px rgba(14, 165, 233, 0.20);
+
+  /* ── Accent ── */
+  --accent:           #059669;
+  --accent-bg:        rgba(5, 150, 105, 0.08);
+  --accent-border:    rgba(5, 150, 105, 0.20);
+  --accent-text:      #047857;
+  --accent-gradient:  linear-gradient(135deg, #10b981 0%, #059669 100%);
+
+  /* ── Warning ── */
+  --warning:          #d97706;
+  --warning-bg:       rgba(217, 119, 6, 0.08);
+  --warning-border:   rgba(217, 119, 6, 0.20);
+  --warning-text:     #b45309;
+  --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+
+  /* ── Danger ── */
+  --danger:        #e11d48;
+  --danger-bg:     rgba(225, 29, 72, 0.07);
+  --danger-border: rgba(225, 29, 72, 0.18);
+  --danger-text:   #be123c;
+
+  /* ── Neutral ── */
+  --neutral-bg:     rgba(0, 0, 0, 0.04);
+  --neutral-border: rgba(0, 0, 0, 0.10);
+  --neutral-text:   #64748b;
+}
+
+
+/* ───────────────────────────────────────────────────────────────────
    2. BASE RESET & TYPOGRAPHY
    ─────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
+
+html {
+  /* Smooth theme transition — all color changes animate */
+  transition: background 0.35s ease, color 0.35s ease;
+}
 
 html, body {
   margin: 0;
@@ -114,11 +182,23 @@ html, body {
     radial-gradient(circle at 55% 75%, rgba(167, 243, 208, 0.07), transparent 25%),
     linear-gradient(180deg, #06101b 0%, #091521 38%, #050b13 100%);
   background-attachment: fixed;
+  transition: background 0.35s ease, color 0.2s ease;
+}
+
+/* Light theme background */
+[data-theme="light"] body,
+[data-theme="light"] html {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(14, 165, 233, 0.08), transparent 30%),
+    radial-gradient(circle at 85% 10%, rgba(251, 191, 36, 0.06), transparent 25%),
+    radial-gradient(circle at 55% 75%, rgba(5, 150, 105, 0.05), transparent 28%),
+    linear-gradient(180deg, #e9f3fb 0%, #f0f4f8 50%, #e4edf6 100%);
 }
 
 a   { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; }
 ::selection { background: rgba(105, 226, 255, 0.22); }
+[data-theme="light"] ::selection { background: rgba(14, 165, 233, 0.20); }
 
 /* Display font helper (uses --font-display if loaded) */
 .display {
@@ -140,6 +220,10 @@ button, input, select, textarea { font: inherit; }
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 32px;
   pointer-events: none;
+  transition: border-color 0.35s ease;
+}
+[data-theme="light"] .app-shell::before {
+  border-color: rgba(14, 165, 233, 0.08);
 }
 
 /* Subtle grid overlay on the background */
@@ -148,6 +232,11 @@ button, input, select, textarea { font: inherit; }
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
   background-size: 36px 36px;
+}
+[data-theme="light"] .grid-overlay {
+  background-image:
+    linear-gradient(rgba(14, 165, 233, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.055) 1px, transparent 1px);
 }
 
 /* Thin scrollbar */
@@ -164,7 +253,104 @@ button, input, select, textarea { font: inherit; }
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   backdrop-filter: blur(22px);
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
 }
+[data-theme="light"] .glass-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65));
+  backdrop-filter: blur(20px);
+}
+
+
+/* ───────────────────────────────────────────────────────────────────
+   4b. THEME TOGGLE BUTTON
+   ─────────────────────────────────────────────────────────────────── */
+
+/* Floating wrapper — fixed top-right, above everything */
+.theme-toggle-wrapper {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+/* The button itself */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.7rem 0.35rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  outline: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+.theme-toggle:hover {
+  border-color: rgba(105,226,255,0.35);
+  background: rgba(105,226,255,0.10);
+  box-shadow: 0 0 14px rgba(105,226,255,0.2);
+}
+[data-theme="light"] .theme-toggle {
+  border-color: rgba(14,165,233,0.22);
+  background: rgba(255,255,255,0.80);
+  box-shadow: 0 2px 12px rgba(14,28,46,0.10);
+}
+[data-theme="light"] .theme-toggle:hover {
+  border-color: rgba(14,165,233,0.45);
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 0 14px rgba(14,165,233,0.18);
+}
+
+/* The sliding track inside the toggle */
+.theme-toggle-track {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(105,226,255,0.20);
+  border: 1px solid rgba(105,226,255,0.3);
+  flex-shrink: 0;
+  transition: background 0.25s ease;
+}
+[data-theme="light"] .theme-toggle-track {
+  background: rgba(14,165,233,0.25);
+  border-color: rgba(14,165,233,0.38);
+}
+
+/* Animated thumb */
+.theme-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #69e2ff;
+  box-shadow: 0 0 6px rgba(105,226,255,0.6);
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s ease, box-shadow 0.25s ease;
+}
+[data-theme="light"] .theme-toggle-thumb {
+  transform: translateX(12px);
+  background: #0ea5e9;
+  box-shadow: 0 0 6px rgba(14,165,233,0.5);
+}
+
+/* Icon beside the track */
+.theme-toggle-icon {
+  display: flex;
+  align-items: center;
+  color: #69e2ff;
+  flex-shrink: 0;
+  transition: color 0.25s ease;
+}
+[data-theme="light"] .theme-toggle-icon {
+  color: #0ea5e9;
+}
+
 
 
 /* ───────────────────────────────────────────────────────────────────
@@ -761,3 +947,260 @@ button, input, select, textarea { font: inherit; }
 .ds-stagger-3 { animation-delay: 0.18s; }
 .ds-stagger-4 { animation-delay: 0.24s; }
 .ds-stagger-5 { animation-delay: 0.30s; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   17. LIGHT THEME — GLOBAL TAILWIND OVERRIDES
+   These override hardcoded Tailwind utility classes across all pages
+   so every page adapts to light mode without editing TSX files.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Text colors ───────────────────────────────────────────────── */
+[data-theme="light"] .text-white          { color: #0e1c2e !important; }
+[data-theme="light"] .text-slate-100      { color: #1e3a5f !important; }
+[data-theme="light"] .text-slate-200      { color: #2d4a6e !important; }
+[data-theme="light"] .text-slate-300      { color: #3d5a7e !important; }
+[data-theme="light"] .text-slate-400      { color: #4a6080 !important; }
+[data-theme="light"] .text-slate-500      { color: #607898 !important; }
+[data-theme="light"] .text-slate-600      { color: #7a90a8 !important; }
+[data-theme="light"] .text-slate-950      { color: #0e1c2e !important; }
+
+/* ── Accent / neon text — brighten for light bg ─────────────────── */
+[data-theme="light"] .text-cyan-300       { color: #0284c7 !important; }
+[data-theme="light"] .text-cyan-200       { color: #0369a1 !important; }
+[data-theme="light"] .text-cyan-400       { color: #0ea5e9 !important; }
+[data-theme="light"] .text-violet-300     { color: #7c3aed !important; }
+[data-theme="light"] .text-violet-200     { color: #6d28d9 !important; }
+[data-theme="light"] .text-purple-300     { color: #7c3aed !important; }
+[data-theme="light"] .text-emerald-300    { color: #047857 !important; }
+[data-theme="light"] .text-emerald-400    { color: #059669 !important; }
+[data-theme="light"] .text-emerald-100    { color: #065f46 !important; }
+[data-theme="light"] .text-amber-300      { color: #b45309 !important; }
+[data-theme="light"] .text-rose-300       { color: #be123c !important; }
+[data-theme="light"] .text-rose-200       { color: #9f1239 !important; }
+[data-theme="light"] .text-rose-100       { color: #881337 !important; }
+[data-theme="light"] .text-rose-400       { color: #e11d48 !important; }
+
+/* ── Opaque dark backgrounds → light equivalents ────────────────── */
+[data-theme="light"] .bg-slate-950        { background-color: #f8fafc !important; }
+[data-theme="light"] .bg-slate-900        { background-color: #f1f5f9 !important; }
+[data-theme="light"] .bg-slate-800        { background-color: #e8edf4 !important; }
+
+/* ── Transparent white overlays → transparent dark overlays ─────── */
+[data-theme="light"] .bg-white\/3         { background-color: rgba(14,28,46,0.03) !important; }
+[data-theme="light"] .bg-white\/4         { background-color: rgba(14,28,46,0.04) !important; }
+[data-theme="light"] .bg-white\/5         { background-color: rgba(14,28,46,0.05) !important; }
+[data-theme="light"] .bg-white\/6         { background-color: rgba(14,28,46,0.06) !important; }
+[data-theme="light"] .bg-white\/8         { background-color: rgba(14,28,46,0.07) !important; }
+[data-theme="light"] .bg-white\/10        { background-color: rgba(14,28,46,0.09) !important; }
+[data-theme="light"] .bg-white\/12        { background-color: rgba(14,28,46,0.09) !important; }
+[data-theme="light"] .bg-white\/15        { background-color: rgba(14,28,46,0.10) !important; }
+[data-theme="light"] .bg-white\/20        { background-color: rgba(14,28,46,0.12) !important; }
+[data-theme="light"] .bg-white\/25        { background-color: rgba(14,28,46,0.14) !important; }
+
+/* slate-950 with opacity on dark → white on light */
+[data-theme="light"] .bg-slate-950\/50    { background-color: rgba(255,255,255,0.75) !important; }
+[data-theme="light"] .bg-slate-950\/70    { background-color: rgba(255,255,255,0.85) !important; }
+[data-theme="light"] .bg-slate-950\/80    { background-color: rgba(255,255,255,0.90) !important; }
+
+/* ── Borders ───────────────────────────────────────────────────── */
+[data-theme="light"] .border-white\/6     { border-color: rgba(14,28,46,0.07) !important; }
+[data-theme="light"] .border-white\/8     { border-color: rgba(14,28,46,0.09) !important; }
+[data-theme="light"] .border-white\/10    { border-color: rgba(14,28,46,0.11) !important; }
+[data-theme="light"] .border-white\/12    { border-color: rgba(14,28,46,0.11) !important; }
+[data-theme="light"] .border-white\/15    { border-color: rgba(14,28,46,0.13) !important; }
+[data-theme="light"] .border-white\/20    { border-color: rgba(14,28,46,0.14) !important; }
+[data-theme="light"] .border-white\/25    { border-color: rgba(14,28,46,0.16) !important; }
+
+/* ── Inline code / inputs / textareas ──────────────────────────── */
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  color: #0e1c2e !important;
+  background-color: rgba(255,255,255,0.85) !important;
+  border-color: rgba(14,28,46,0.15) !important;
+}
+
+/* ── Component-level fixes ──────────────────────────────────────── */
+
+/* Tab bars — active pill */
+[data-theme="light"] .bg-white.text-slate-950 {
+  background: linear-gradient(135deg, #0ea5e9, #22d3ee) !important;
+  color: #fff !important;
+}
+
+/* Dark card backgrounds used in portal / dashboard */
+[data-theme="light"] .bg-\[\#07101d\],
+[data-theme="light"] .bg-\[rgba\(7\2c 16\2c 29\2c 0\.88\)\],
+[data-theme="light"] .bg-\[rgba\(7\2c 16\2c 29\2c 0\.5\)\] {
+  background-color: rgba(255,255,255,0.80) !important;
+}
+
+/* Frosted dark chip / badge backgrounds */
+[data-theme="light"] .bg-cyan-500\/10     { background-color: rgba(14,165,233,0.10) !important; }
+[data-theme="light"] .bg-cyan-500\/8      { background-color: rgba(14,165,233,0.08) !important; }
+[data-theme="light"] .bg-cyan-500\/15     { background-color: rgba(14,165,233,0.14) !important; }
+[data-theme="light"] .bg-violet-500\/10   { background-color: rgba(124,58,237,0.10) !important; }
+[data-theme="light"] .bg-emerald-500\/10  { background-color: rgba(5,150,105,0.10) !important; }
+[data-theme="light"] .bg-emerald-500\/8   { background-color: rgba(5,150,105,0.08) !important; }
+[data-theme="light"] .bg-rose-500\/10     { background-color: rgba(225,29,72,0.10) !important; }
+[data-theme="light"] .bg-rose-500\/8      { background-color: rgba(225,29,72,0.08) !important; }
+[data-theme="light"] .bg-amber-500\/10    { background-color: rgba(245,158,11,0.10) !important; }
+[data-theme="light"] .bg-amber-500\/8     { background-color: rgba(245,158,11,0.08) !important; }
+
+/* App-level black backdrop (modals, overlays) */
+[data-theme="light"] .bg-slate-950\/80    { background-color: rgba(14,28,46,0.55) !important; }
+
+/* ── More slate opacity variants used in portal/dashboard ───────── */
+[data-theme="light"] .bg-slate-900\/40    { background-color: rgba(255,255,255,0.65) !important; }
+[data-theme="light"] .bg-slate-900\/50    { background-color: rgba(255,255,255,0.70) !important; }
+[data-theme="light"] .bg-slate-900\/60    { background-color: rgba(255,255,255,0.78) !important; }
+[data-theme="light"] .bg-slate-900\/80    { background-color: rgba(255,255,255,0.88) !important; }
+
+/* ── Active tab bar pill (bg-white/10 text-white → visible blue) ── */
+[data-theme="light"] button.bg-white\/10.text-white,
+[data-theme="light"] button.border.bg-white\/10 {
+  background-color: rgba(14,165,233,0.14) !important;
+  border-color: rgba(14,165,233,0.28) !important;
+  color: #0284c7 !important;
+}
+
+/* ── Orange / amber text on light bg ────────────────────────────── */
+[data-theme="light"] .text-orange-200     { color: #c2410c !important; }
+[data-theme="light"] .text-orange-300     { color: #b45309 !important; }
+[data-theme="light"] .text-orange-400     { color: #d97706 !important; }
+[data-theme="light"] .text-amber-400      { color: #b45309 !important; }
+[data-theme="light"] .text-amber-300      { color: #92400e !important; }
+
+/* ── Orange badge bg ─────────────────────────────────────────────── */
+[data-theme="light"] .bg-orange-500\/10   { background-color: rgba(249,115,22,0.10) !important; }
+[data-theme="light"] .bg-orange-600\/8    { background-color: rgba(234,88,12,0.08) !important; }
+[data-theme="light"] .border-orange-300\/20 { border-color: rgba(249,115,22,0.22) !important; }
+[data-theme="light"] .border-amber-300\/20  { border-color: rgba(245,158,11,0.25) !important; }
+[data-theme="light"] .border-amber-300\/40  { border-color: rgba(245,158,11,0.40) !important; }
+
+/* ── White border used in portal header ring ─────────────────────── */
+[data-theme="light"] .ring-white\/20      { --tw-ring-color: rgba(14,28,46,0.12) !important; }
+[data-theme="light"] .border-white\/5     { border-color: rgba(14,28,46,0.06) !important; }
+
+/* ── Amber gradient card BG (daily plan card) → light warm wash ─── */
+[data-theme="light"] .from-amber-500\/15  { --tw-gradient-from: rgba(245,158,11,0.12) !important; }
+[data-theme="light"] .to-orange-600\/8    { --tw-gradient-to:   rgba(234,88,12,0.07) !important; }
+
+/* ── Stroke colors for icon SVGs ─────────────────────────────────── */
+[data-theme="light"] .text-slate-400 svg  { color: #4a6080; }
+[data-theme="light"] .text-slate-500 svg  { color: #607898; }
+
+/* ══════════════════════════════════════════════════════════════════
+   COMPREHENSIVE AUDIT FIX — all remaining light-theme issues
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Chat page: feedback card amber tints ────────────────────────── */
+/* amber-100 text in "Improve" section → legible dark amber */
+[data-theme="light"] .text-amber-100      { color: #92400e !important; }
+[data-theme="light"] .text-amber-200      { color: #b45309 !important; }
+/* amber label */
+[data-theme="light"] .text-amber-400      { color: #b45309 !important; }
+/* amber badge bg in feedback card header */
+[data-theme="light"] .bg-amber-500\/15    { background-color: rgba(245,158,11,0.12) !important; }
+[data-theme="light"] .border-amber-300\/30 { border-color: rgba(245,158,11,0.35) !important; }
+
+/* ── Chat page: feedback card cyan tints ─────────────────────────── */
+/* cyan-100 text in "Better Version" section → legible dark blue */
+[data-theme="light"] .text-cyan-100       { color: #0369a1 !important; }
+/* cyan-200 text on "Use this" button */
+[data-theme="light"] .text-cyan-200       { color: #0369a1 !important; }
+/* cyan outline bg on "Use this" button */
+[data-theme="light"] .border-cyan-300\/25  { border-color: rgba(14,165,233,0.30) !important; }
+[data-theme="light"] .border-cyan-300\/15  { border-color: rgba(14,165,233,0.22) !important; }
+[data-theme="light"] .bg-cyan-500\/10      { background-color: rgba(14,165,233,0.10) !important; }
+/* cyan section bg */
+[data-theme="light"] .bg-cyan-500\/8       { background-color: rgba(14,165,233,0.08) !important; }
+
+/* ── Chat page: feedback card emerald tints ──────────────────────── */
+[data-theme="light"] .text-emerald-100    { color: #065f46 !important; }
+[data-theme="light"] .text-emerald-200    { color: #047857 !important; }
+[data-theme="light"] .border-emerald-300\/15 { border-color: rgba(5,150,105,0.20) !important; }
+[data-theme="light"] .border-emerald-300\/25 { border-color: rgba(5,150,105,0.28) !important; }
+[data-theme="light"] .bg-emerald-500\/15  { background-color: rgba(5,150,105,0.10) !important; }
+[data-theme="light"] .border-emerald-300\/30 { border-color: rgba(5,150,105,0.30) !important; }
+
+/* ── Chat page: violet tints (Strict mode) ───────────────────────── */
+[data-theme="light"] .text-violet-200     { color: #5b21b6 !important; }
+[data-theme="light"] .border-violet-300\/25 { border-color: rgba(124,58,237,0.28) !important; }
+[data-theme="light"] .border-violet-300\/30 { border-color: rgba(124,58,237,0.32) !important; }
+[data-theme="light"] .bg-violet-500\/10   { background-color: rgba(124,58,237,0.09) !important; }
+
+/* ── Chat page: status badges in topbar ──────────────────────────── */
+[data-theme="light"] .text-rose-200       { color: #9f1239 !important; }
+[data-theme="light"] .bg-rose-500\/10     { background-color: rgba(225,29,72,0.09) !important; }
+[data-theme="light"] .border-rose-300\/30 { border-color: rgba(225,29,72,0.30) !important; }
+[data-theme="light"] .bg-violet-500\/10   { background-color: rgba(124,58,237,0.09) !important; }
+[data-theme="light"] .border-violet-300\/30 { border-color: rgba(124,58,237,0.30) !important; }
+
+/* ── Chat page: AI message bubble bg ─────────────────────────────── */
+[data-theme="light"] .bg-\[rgba\(7\2c16\2c29\2c0\.88\)\] { background-color: rgba(255,255,255,0.92) !important; }
+[data-theme="light"] .bg-\[rgba\(7\2c16\2c29\2c0\.9\)\]  { background-color: rgba(255,255,255,0.92) !important; }
+
+/* ── Home page: mix-blend-plus-lighter hides text on light bg ──── */
+[data-theme="light"] .mix-blend-plus-lighter { mix-blend-mode: normal !important; color: #3d5a7e !important; }
+
+/* ── Home page: "Create Free Account" secondary button ───────────── */
+/* bg-slate-900/50 + text-white → white card with dark text */
+[data-theme="light"] a.border.border-white\/5.bg-slate-900\/50,
+[data-theme="light"] a.border.bg-slate-900\/50 {
+  background-color: rgba(255,255,255,0.80) !important;
+  border-color: rgba(14,28,46,0.15) !important;
+  color: #0e1c2e !important;
+}
+
+/* ── Home page: feature card h3 headings ─────────────────────────── */
+[data-theme="light"] h3.text-white { color: #0e1c2e !important; }
+
+/* ── Home page: indigo accent text ──────────────────────────────── */
+[data-theme="light"] .text-indigo-300     { color: #4338ca !important; }
+[data-theme="light"] .text-indigo-400     { color: #4f46e5 !important; }
+[data-theme="light"] .text-indigo-200     { color: #3730a3 !important; }
+[data-theme="light"] .bg-indigo-500\/10   { background-color: rgba(99,102,241,0.09) !important; }
+[data-theme="light"] .bg-indigo-500\/20   { background-color: rgba(99,102,241,0.14) !important; }
+
+/* ── Dashboard: warning toast "No auth token" text ───────────────── */
+/* amber-100 on amber-500/10 bg → legible dark amber */
+[data-theme="light"] .bg-amber-500\/10 .text-amber-100,
+[data-theme="light"] .border-amber-400\/20 { border-color: rgba(245,158,11,0.32) !important; }
+
+/* ── Dashboard: nav buttons (Portal, Timeline) ───────────────────── */
+[data-theme="light"] a.border.border-white\/10.bg-slate-950\/50,
+[data-theme="light"] a.border.bg-slate-950\/50 {
+  background-color: rgba(255,255,255,0.78) !important;
+  border-color: rgba(14,28,46,0.15) !important;
+  color: #0e1c2e !important;
+}
+
+/* ── Register/Login page: "Sign in" ghost link ───────────────────── */
+[data-theme="light"] .text-slate-200      { color: #1e3c6e !important; }
+
+/* ── Gradient text clips (hero gradient words) ───────────────────── */
+/* When the bg-clip-text gradient uses light neons they become washed—
+   render a vivid teal instead */
+[data-theme="light"] .bg-clip-text.text-transparent {
+  -webkit-text-fill-color: transparent !important;
+  background-image: linear-gradient(90deg, #0284c7, #047857) !important;
+}
+
+/* ── Scrollbar on light ──────────────────────────────────────────── */
+[data-theme="light"] .scrollbar-subtle {
+  scrollbar-color: rgba(14,28,46,0.25) transparent;
+}
+[data-theme="light"] .scrollbar-subtle::-webkit-scrollbar-thumb {
+  background: rgba(14,28,46,0.20);
+}
+
+/* ── Smooth color transitions on all elements ──────────────────── */
+[data-theme="light"] * {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+/* But don't slow-down animations that should be instant */
+[data-theme="light"] .transition-none * { transition: none !important; }

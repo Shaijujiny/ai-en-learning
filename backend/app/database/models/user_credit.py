@@ -1,11 +1,12 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 
-_DEFAULT_CREDITS = 20
+DAILY_CREDITS = 20
+MESSAGES_PER_CREDIT = 5
 
 
 class UserCredit(Base):
@@ -16,11 +17,17 @@ class UserCredit(Base):
         ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
     )
     total_credits: Mapped[int] = mapped_column(
-        Integer, default=_DEFAULT_CREDITS, server_default=str(_DEFAULT_CREDITS)
+        Integer, default=DAILY_CREDITS, server_default=str(DAILY_CREDITS)
     )
     remaining_credits: Mapped[int] = mapped_column(
-        Integer, default=_DEFAULT_CREDITS, server_default=str(_DEFAULT_CREDITS)
+        Integer, default=DAILY_CREDITS, server_default=str(DAILY_CREDITS)
     )
+    # Counts messages sent today; resets to 0 with daily refresh
+    messages_today: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0"
+    )
+    # The date credits were last reset; null = never reset yet
+    last_reset_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

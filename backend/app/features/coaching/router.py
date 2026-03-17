@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.analytics_service import analytics_service
 from app.core.career_advisor_service import career_advisor_service
 from app.core.coach_service import coach_service
 from app.core.fluency_service import fluency_service
 from app.core.grammar_service import grammar_service
+from app.core.mistake_memory_service import mistake_memory_service
 from app.core.vocabulary_service import vocabulary_service
 from app.database.models.user import User
 from app.database.session import get_db
@@ -24,6 +26,7 @@ router = APIRouter(prefix="/coaching", tags=["coaching"])
 @router.post("/feedback")
 def generate_feedback(
     payload: CoachFeedbackRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     grammar_result = grammar_service.safe_analyze_text(payload.text)
@@ -33,6 +36,39 @@ def generate_feedback(
         grammar_match_count=grammar_match_count,
     )
     vocabulary_result = vocabulary_service.analyze(payload.text)
+
+    # Persist grammar mistakes so they appear in the Mistakes tab + Timeline
+    if grammar_result:
+        mistake_memory_service.record_grammar_matches(
+            db=db,
+            user=current_user,
+            text=payload.text,
+            matches=grammar_result.get("matches", []),
+        )
+    mistake_memory_service.record_repeated_words(
+        db=db,
+        user=current_user,
+        text=payload.text,
+    )
+
+    # Persist scores so they appear in the Timeline (drops/improvements)
+    analytics_service.record_score(
+        db=db,
+        user_id=current_user.id,
+        conversation_id=None,
+        score_type="fluency",
+        score_value=fluency_result["overall_score"],
+        feedback=fluency_result.get("summary", ""),
+    )
+    analytics_service.record_score(
+        db=db,
+        user_id=current_user.id,
+        conversation_id=None,
+        score_type="vocabulary",
+        score_value=vocabulary_result["overall_score"],
+        feedback=vocabulary_result.get("summary", ""),
+    )
+    db.commit()
 
     feedback = coach_service.generate_feedback(
         text=payload.text,

@@ -163,7 +163,7 @@ export default function FreflowPage() {
           {/* Topic */}
           <div className="anim anim-1">
             <p className="ds-label mb-3">What do you want to talk about?</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {TOPICS.map((t, i) => (
                 <button
                   key={t.id}

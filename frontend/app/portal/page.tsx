@@ -30,7 +30,7 @@ import {
   Star,
   Target,
 } from "lucide-react";
-import { readApiData } from "@/lib/api";
+import { apiFetch, readApiData } from "@/lib/api";
 
 type Scenario = {
   id: number;
@@ -163,7 +163,16 @@ export default function PortalPage() {
   const [streak] = useState(3);
   const [fluencyTrend] = useState("+4.2");
   const [personalization, setPersonalization] = useState<PersonalizationData | null>(null);
-  const [goalsChecked, setGoalsChecked] = useState<boolean[]>([false, false, false]);
+  const [goalsChecked, setGoalsChecked] = useState<boolean[]>(() => {
+    // Key by today's date so goals auto-reset each new day
+    if (typeof window === "undefined") return [false, false, false];
+    const key = `goals_${new Date().toISOString().slice(0, 10)}`;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(key) ?? "null");
+      if (Array.isArray(saved) && saved.length === 3) return saved as boolean[];
+    } catch { /* ignore */ }
+    return [false, false, false];
+  });
   const [focusTipIndex] = useState(() => Math.floor(Math.random() * FOCUS_TIPS.length));
   const scenariosRef = useRef<HTMLDivElement | null>(null);
 
@@ -188,12 +197,11 @@ export default function PortalPage() {
     async function load() {
       setLoading(true);
       setError("");
-      const headers = { Authorization: `Bearer ${token}` };
-      const [meRes, scenRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/auth/me`, { headers }),
-        fetch(`${API_BASE_URL}/scenarios`),
-      ]);
       try {
+        const [meRes, scenRes] = await Promise.all([
+          apiFetch(`${API_BASE_URL}/auth/me`),
+          apiFetch(`${API_BASE_URL}/scenarios`),
+        ]);
         const [me, scen] = await Promise.all([
           readApiData<User>(meRes),
           readApiData<Scenario[] | { items: Scenario[] }>(scenRes),
@@ -203,9 +211,10 @@ export default function PortalPage() {
         setUser(me);
         setScenarios(items);
         if (items.length > 0) setBaseScenarioId((c) => c || items[0].id);
-        fetch(`${API_BASE_URL}/personalization/recommendations?limit=4`, { headers })
-          .then((r) => r.json())
-          .then((d) => { if (d?.data) setPersonalization(d.data as PersonalizationData); })
+        // Personalization doesn't throw on fail, just degrades gracefully
+        apiFetch(`${API_BASE_URL}/personalization/recommendations?limit=4`)
+          .then((r: Response) => r.json())
+          .then((d: any) => { if (d?.data) setPersonalization(d.data as PersonalizationData); })
           .catch(() => {});
       } catch {
         setError("Could not load your home. Please try again.");
@@ -221,9 +230,9 @@ export default function PortalPage() {
     setStartingId(opts?.customPrompt ? "custom" : scenarioId);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/conversations/start`, {
+      const res = await apiFetch(`${API_BASE_URL}/conversations/start`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scenario_id: scenarioId,
           language,
@@ -313,7 +322,7 @@ export default function PortalPage() {
             </Link>
             <button
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition"
-              onClick={() => { window.localStorage.removeItem("token"); router.push("/login"); }}
+              onClick={() => { window.localStorage.removeItem("token"); window.localStorage.removeItem("refresh_token"); document.cookie = "auth_token=; path=/; max-age=0"; router.push("/login"); }}
               title="Sign out"
               type="button"
             >
@@ -323,14 +332,14 @@ export default function PortalPage() {
         </header>
 
         {/* ─── Modes quick-access bar ─── */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 md:gap-3">
           {MODES.map(({ href, Icon, label }) => (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center gap-2 rounded-[1.5rem] border border-white/8 bg-white/3 py-4 text-center text-xs font-medium text-slate-400 hover:border-violet-300/25 hover:bg-violet-500/8 hover:text-white transition group"
+              className="flex flex-col items-center justify-center gap-2 rounded-[1.5rem] border border-white/8 bg-white/3 py-4 md:py-5 text-center text-xs font-medium text-slate-400 hover:border-violet-300/25 hover:bg-violet-500/8 hover:text-white transition group"
             >
-              <Icon size={18} className="text-slate-500 group-hover:text-violet-300 transition" />
+              <Icon size={20} className="text-slate-500 group-hover:text-violet-300 transition" />
               <span>{label}</span>
             </Link>
           ))}
@@ -364,7 +373,7 @@ export default function PortalPage() {
         </button>
 
         {/* ─── Tab Bar ─── */}
-        <div className="flex gap-1.5 rounded-[1.5rem] border border-white/10 bg-slate-950/50 p-1.5">
+        <div className="flex gap-1 sm:gap-1.5 rounded-[1.5rem] border border-white/10 bg-slate-950/50 p-1 sm:p-1.5">
           {([
             { key: "home",     Icon: Home,     label: "Home" },
             { key: "practice", Icon: BookOpen,  label: "Practice" },
@@ -372,7 +381,7 @@ export default function PortalPage() {
           ] as { key: "home"|"practice"|"custom"; Icon: LucideIcon; label: string }[]).map(({ key, Icon, label }) => (
             <button
               key={key}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-[1.1rem] py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
+              className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-[1.1rem] py-2.5 px-1 sm:px-3 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider sm:tracking-[0.18em] transition ${
                 activeTab === key
                   ? "bg-white/10 border border-white/10 text-white"
                   : "text-slate-500 hover:text-slate-300"
@@ -380,8 +389,8 @@ export default function PortalPage() {
               onClick={() => setActiveTab(key)}
               type="button"
             >
-              <Icon size={12} />
-              {label}
+              <Icon size={12} className="hidden sm:block" />
+              <span className="truncate">{label}</span>
             </button>
           ))}
         </div>
@@ -395,7 +404,7 @@ export default function PortalPage() {
             {/* ── Daily System entry card ── */}
             <Link
               href="/daily"
-              className="group relative flex items-center justify-between gap-4 overflow-hidden rounded-[2rem] border border-amber-300/20 bg-gradient-to-br from-amber-500/15 to-orange-600/8 p-5 transition hover:border-amber-300/40 hover:scale-[1.01] active:scale-[0.99]"
+              className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-4 overflow-hidden rounded-[2rem] border border-amber-300/20 bg-gradient-to-br from-amber-500/15 to-orange-600/8 p-4 sm:p-5 transition hover:border-amber-300/40 hover:scale-[1.01] active:scale-[0.99]"
             >
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(251,191,36,0.12),transparent_60%)]" />
               <div className="relative flex items-center gap-4">
@@ -410,12 +419,12 @@ export default function PortalPage() {
                   </p>
                 </div>
               </div>
-              <div className="relative flex flex-col items-end gap-1.5">
+              <div className="relative flex w-full sm:w-auto items-center sm:flex-col sm:items-end justify-between sm:justify-center gap-2 sm:gap-1.5 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-amber-500/10 sm:border-0">
                 <div className="flex items-center gap-1.5 rounded-full border border-orange-300/20 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
                   <Flame size={10} className="text-orange-400" />
                   {streak}d streak
                 </div>
-                <span className="flex items-center gap-1 text-xs text-amber-400 group-hover:text-amber-300 transition">
+                <span className="flex items-center gap-1 text-xs font-medium text-amber-400 group-hover:text-amber-300 transition">
                   Open <ChevronRight size={12} />
                 </span>
               </div>
@@ -423,8 +432,8 @@ export default function PortalPage() {
 
             {/* ── Personalized Recommendations ── */}
             {personalization && personalization.recommendations.length > 0 && (
-              <div className="glass-panel rounded-[2rem] p-5">
-                <div className="flex items-center justify-between mb-4">
+              <div className="glass-panel rounded-[2rem] p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div>
                     <p className="flex items-center gap-1.5 text-xs uppercase tracking-[0.28em] text-violet-300 font-semibold">
                       <Target size={11} className="text-violet-400" />
@@ -496,7 +505,16 @@ export default function PortalPage() {
                         ? "border-emerald-300/20 bg-emerald-500/8 opacity-60"
                         : "border-white/8 bg-white/4 hover:border-white/15"
                     }`}
-                    onClick={() => setGoalsChecked((p) => { const n = [...p]; n[i] = !n[i]; return n; })}
+                    onClick={() => {
+                      setGoalsChecked((p) => {
+                        const n = [...p];
+                        n[i] = !n[i];
+                        // Persist to localStorage keyed by today so it resets tomorrow
+                        const key = `goals_${new Date().toISOString().slice(0, 10)}`;
+                        try { window.localStorage.setItem(key, JSON.stringify(n)); } catch { /* ignore */ }
+                        return n;
+                      });
+                    }}
                     type="button"
                   >
                     <Icon size={15} className={goalsChecked[i] ? "text-emerald-400" : "text-slate-500"} />
@@ -522,16 +540,16 @@ export default function PortalPage() {
             </div>
 
             {/* ── Quick stats ── */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {[
                 { Icon: Flame,         label: "Streak",  val: `${streak}d`,               color: "text-orange-400" },
                 { Icon: TrendingUp,    label: "Fluency", val: "Growing",                  color: "text-emerald-400" },
                 { Icon: GraduationCap, label: "Level",   val: user?.user_level ?? "—",     color: "text-cyan-400" },
               ].map(({ Icon, label, val, color }) => (
-                <div key={label} className="glass-panel rounded-[1.75rem] p-4 flex flex-col gap-2">
+                <div key={label} className="glass-panel rounded-[1.25rem] sm:rounded-[1.75rem] p-3 sm:p-4 flex flex-col gap-1.5 sm:gap-2">
                   <Icon size={18} className={color} />
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">{label}</p>
-                  <p className="text-lg font-bold text-white">{val}</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 truncate">{label}</p>
+                  <p className="text-base sm:text-lg font-bold text-white truncate">{val}</p>
                 </div>
               ))}
             </div>
@@ -583,14 +601,14 @@ export default function PortalPage() {
             </div>
 
             {/* ── Nav shortcuts ── */}
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+            <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-5 gap-2 md:gap-3">
               {NAV_SHORTCUTS.map(({ href, Icon, label }) => (
                 <Link
                   key={href}
                   href={href}
-                  className="flex flex-col items-center gap-2 rounded-[1.2rem] border border-white/8 bg-white/3 px-3 py-3 text-center text-xs font-medium text-slate-400 hover:border-cyan-300/25 hover:text-white transition group"
+                  className="flex flex-col items-center gap-2 rounded-[1.2rem] border border-white/8 bg-white/3 px-3 py-3 md:py-4 text-center text-xs font-medium text-slate-400 hover:border-cyan-300/25 hover:text-white transition group"
                 >
-                  <Icon size={15} className="text-slate-600 group-hover:text-cyan-300 transition" />
+                  <Icon size={16} className="text-slate-600 group-hover:text-cyan-300 transition" />
                   {label}
                 </Link>
               ))}
@@ -691,7 +709,7 @@ export default function PortalPage() {
 
                       <div className="mt-5 flex items-center gap-3">
                         <span className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition duration-200 ${
-                          isStarting ? "bg-white/10 text-slate-300" : "bg-white text-slate-950 group-hover:bg-cyan-200"
+                          isStarting ? "bg-white/10 text-slate-300" : "bg-[linear-gradient(135deg,#69e2ff,#a7f3d0)] text-slate-950 shadow-[0_0_12px_rgba(105,226,255,0.25)] group-hover:shadow-[0_0_20px_rgba(105,226,255,0.45)]"
                         }`}>
                           {isStarting
                             ? <><RefreshCw size={13} className="animate-spin" /> Starting…</>
