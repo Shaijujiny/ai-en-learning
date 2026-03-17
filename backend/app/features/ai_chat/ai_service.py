@@ -26,6 +26,7 @@ class AIChatService:
         conversation_history: Sequence[dict[str, str]],
         current_level: str | None,
         skill_breakdown: dict[str, float],
+        correction_mode: str,
         mistake_memory: Sequence[dict[str, str | None]],
     ) -> str:
         started_at = time.perf_counter()
@@ -38,6 +39,7 @@ class AIChatService:
             conversation_history=conversation_history,
             current_level=current_level,
             skill_breakdown=skill_breakdown,
+            correction_mode=correction_mode,
             mistake_memory=mistake_memory,
         )
         cache_key = cache_service.make_key(

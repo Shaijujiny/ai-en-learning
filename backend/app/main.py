@@ -24,6 +24,10 @@ from app.features.health.router import router as health_router
 from app.features.messages.routes import router as messages_router
 from app.features.scenarios.routes import router as scenarios_router
 from app.features.speech.router import router as speech_router
+from app.features.speaking.router import router as speaking_router
+from app.features.feedback.router import router as feedback_router
+from app.features.reports.router import router as reports_router
+from app.features.retention.router import router as retention_router
 
 configure_logging()
 
@@ -56,6 +60,10 @@ app.include_router(health_router)
 app.include_router(messages_router)
 app.include_router(scenarios_router)
 app.include_router(speech_router)
+app.include_router(speaking_router)
+app.include_router(feedback_router)
+app.include_router(reports_router)
+app.include_router(retention_router)
 
 
 @app.get("/", tags=["root"])

@@ -32,6 +32,7 @@ class ConversationService:
             language=payload.language,
             custom_title=payload.custom_title,
             custom_prompt=payload.custom_prompt,
+            correction_mode=payload.correction_mode or "delayed",
         )
         conversation = conversation_repository.create_conversation(db, conversation)
         db.commit()

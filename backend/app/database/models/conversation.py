@@ -27,6 +27,9 @@ class Conversation(Base):
     )
     custom_title: Mapped[str | None] = mapped_column(String(255))
     custom_prompt: Mapped[str | None] = mapped_column(Text)
+    correction_mode: Mapped[str] = mapped_column(
+        String(50), default="delayed", server_default="delayed"
+    )
     status: Mapped[str] = mapped_column(
         String(50), default="active", server_default="active"
     )

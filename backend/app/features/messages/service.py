@@ -72,6 +72,7 @@ class MessageService:
                 conversation_history=conversation_memory,
                 current_level=current_user.user_level,
                 skill_breakdown=current_user.skill_breakdown or {},
+                correction_mode=conversation.correction_mode,
                 mistake_memory=[
                     {
                         "mistake_type": item.mistake_type,

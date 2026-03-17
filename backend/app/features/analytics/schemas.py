@@ -51,6 +51,8 @@ class ConversationHistoryItemResponse(BaseModel):
     conversation_id: int
     scenario_title: str
     status: str
+    scenario_id: int
+    language: str
     message_count: int
     started_at: datetime
     latest_message: str | None

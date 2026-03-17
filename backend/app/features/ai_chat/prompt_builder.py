@@ -37,6 +37,7 @@ def build_system_prompt(
     conversation_history: Sequence[dict[str, str]],
     current_level: str | None,
     skill_breakdown: dict[str, float],
+    correction_mode: str,
     mistake_memory: Sequence[dict[str, str | None]],
 ) -> str:
     recent_context = build_recent_context(conversation_history)
@@ -49,6 +50,7 @@ def build_system_prompt(
         scenario_difficulty=scenario_difficulty,
         weakest_skill=weakest_skill,
     )
+    correction_profile = build_correction_profile(correction_mode)
     mistakes = build_mistake_memory(mistake_memory)
     return (
         f"You are running the scenario: {scenario_title}.\n"
@@ -65,6 +67,7 @@ def build_system_prompt(
         "Keep responses concise, natural, and useful for spoken practice.\n"
         "Adapt the conversation to the learner profile instead of using a fixed script.\n"
         "Prefer one strong response over multiple unrelated questions.\n\n"
+        f"Correction style:\n{correction_profile}\n\n"
         f"Adaptive coaching profile:\n{adaptation_profile}\n\n"
         f"Repeated mistakes to target gently:\n{mistakes}\n\n"
         f"Recent conversation context:\n{recent_context}\n\n"
@@ -117,3 +120,16 @@ def build_mistake_memory(mistake_memory: Sequence[dict[str, str | None]]) -> str
             f"- {item.get('mistake_type', 'unknown')}: hint={item.get('hint') or 'n/a'}; correction={item.get('correction') or 'n/a'}"
         )
     return "\n".join(lines)
+
+
+def build_correction_profile(correction_mode: str) -> str:
+    mode = (correction_mode or "delayed").lower()
+    if mode == "no_interruption":
+        return "Do not correct during the conversation. Save corrections for the end only."
+    if mode == "correct_every_answer":
+        return "After each user reply, add brief corrections and a better version."
+    if mode == "major_mistakes_only":
+        return "Only correct major mistakes that block understanding. Ignore minor issues."
+    if mode == "delayed":
+        return "Focus on the conversation. Provide a short correction summary after every 2 to 3 turns."
+    return "Use delayed correction unless instructed otherwise."

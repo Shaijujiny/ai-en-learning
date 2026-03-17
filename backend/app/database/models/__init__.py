@@ -9,6 +9,10 @@ from app.database.models.skill_metric import SkillMetric
 from app.database.models.user import User
 from app.database.models.user_level_history import UserLevelHistory
 from app.database.models.user_score import UserScore
+from app.database.models.speaking_analysis import SpeakingAnalysis
+from app.database.models.vocabulary_review_item import VocabularyReviewItem
+from app.database.models.vocabulary_review_session import VocabularyReviewSession
+from app.database.models.vocabulary_word import VocabularyWord
 
 __all__ = [
     "AssessmentAnswer",
@@ -22,4 +26,8 @@ __all__ = [
     "User",
     "UserLevelHistory",
     "UserScore",
+    "SpeakingAnalysis",
+    "VocabularyReviewItem",
+    "VocabularyReviewSession",
+    "VocabularyWord",
 ]

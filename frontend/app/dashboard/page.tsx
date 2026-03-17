@@ -52,6 +52,8 @@ type ConversationHistoryItem = {
   conversation_id: number;
   scenario_title: string;
   status: string;
+  scenario_id: number;
+  language: string;
   message_count: number;
   started_at: string;
   latest_message: string | null;
@@ -69,16 +71,42 @@ type DashboardData = {
   conversation_history: ConversationHistoryItem[];
 };
 
+type RetentionSummary = {
+  today: string;
+  daily_streak: number;
+  active_today: boolean;
+  weekly_range_start: string;
+  weekly_range_end: string;
+  goals: {
+    weekly_lesson_target: number;
+    weekly_vocabulary_items: number;
+    weekly_fluency_target: number;
+    weekly_interview_readiness_target: number;
+  };
+  progress: {
+    weekly_lesson_days: number;
+    weekly_vocabulary_items: number;
+    weekly_fluency_average: number;
+    weekly_interview_readiness_average: number;
+  };
+};
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function DashboardPage() {
   const [token, setToken] = useState("");
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [retention, setRetention] = useState<RetentionSummary | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showAllTrends, setShowAllTrends] = useState(false);
+  const [days, setDays] = useState<number>(14);
+  const [scoreType, setScoreType] = useState<string>("");
+  const [language, setLanguage] = useState<string>("");
+  const [scenarioId, setScenarioId] = useState<number | "">("");
+  const [mistakeType, setMistakeType] = useState<string>("");
 
   useEffect(() => {
     const savedToken = window.localStorage.getItem("token") ?? "";
@@ -95,7 +123,14 @@ export default function DashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetch(`${API_BASE_URL}/analytics/dashboard`, {
+        const query = new URLSearchParams();
+        query.set("days", String(days));
+        if (scoreType) query.set("score_type", scoreType);
+        if (language) query.set("language", language);
+        if (scenarioId) query.set("scenario_id", String(scenarioId));
+        if (mistakeType) query.set("mistake_type", mistakeType);
+
+        const response = await fetch(`${API_BASE_URL}/analytics/dashboard?${query.toString()}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -113,6 +148,26 @@ export default function DashboardPage() {
     }
 
     void loadDashboard();
+  }, [days, language, mistakeType, scoreType, scenarioId, token]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    async function loadRetention() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/retention/summary`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await readApiData<RetentionSummary>(response);
+        setRetention(data);
+      } catch {
+        // Keep dashboard usable even if retention summary fails.
+      }
+    }
+
+    void loadRetention();
   }, [token]);
 
   const visibleHistory = showAllHistory
@@ -139,12 +194,26 @@ export default function DashboardPage() {
                 analytics surface.
               </p>
             </div>
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/50 hover:text-white"
-              href="/portal"
+              href="/timeline"
             >
-              Back to portal
+              Coach timeline
             </Link>
+            <Link
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/50 hover:text-white"
+              href="/reports/weekly"
+            >
+              Weekly report
+            </Link>
+              <Link
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/50 hover:text-white"
+                href="/portal"
+              >
+                Back to portal
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -166,6 +235,94 @@ export default function DashboardPage() {
 
         {dashboard ? (
           <div className="mt-8 grid gap-6">
+            <div className="glass-panel rounded-[2rem] p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+                  Smart filters
+                </p>
+                <span className="text-xs text-slate-400">
+                  Filters update trends, history, and mistakes.
+                </span>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-5">
+                <select
+                  className="rounded-[1.25rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white"
+                  value={days}
+                  onChange={(event) => setDays(Number(event.target.value))}
+                >
+                  <option value={7}>Last 7 days</option>
+                  <option value={14}>Last 14 days</option>
+                  <option value={30}>Last 30 days</option>
+                  <option value={90}>Last 90 days</option>
+                </select>
+
+                <select
+                  className="rounded-[1.25rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white"
+                  value={scoreType}
+                  onChange={(event) => setScoreType(event.target.value)}
+                >
+                  <option value="">All score types</option>
+                  {(dashboard.improvement_trends ?? []).map((item) => (
+                    <option key={item.score_type} value={item.score_type}>
+                      {item.score_type.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="rounded-[1.25rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white"
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value)}
+                >
+                  <option value="">All languages</option>
+                  {Array.from(
+                    new Set((dashboard.conversation_history ?? []).map((c) => c.language)),
+                  ).map((lang) => (
+                    <option key={lang} value={lang}>
+                      {lang}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="rounded-[1.25rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white"
+                  value={scenarioId}
+                  onChange={(event) =>
+                    setScenarioId(event.target.value ? Number(event.target.value) : "")
+                  }
+                >
+                  <option value="">All scenarios</option>
+                  {Array.from(
+                    new Map(
+                      (dashboard.conversation_history ?? []).map((c) => [
+                        c.scenario_id,
+                        c.scenario_title,
+                      ]),
+                    ).entries(),
+                  ).map(([id, title]) => (
+                    <option key={id} value={id}>
+                      {title}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="rounded-[1.25rem] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white"
+                  value={mistakeType}
+                  onChange={(event) => setMistakeType(event.target.value)}
+                >
+                  <option value="">All mistake categories</option>
+                  {Array.from(
+                    new Set((dashboard.mistake_memory ?? []).map((m) => m.mistake_type)),
+                  ).map((type) => (
+                    <option key={type} value={type}>
+                      {type.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
               <div className="glass-panel rounded-[2rem] p-6">
                 <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
@@ -248,6 +405,130 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+
+            {retention ? (
+              <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
+                <div className="glass-panel rounded-[2rem] p-6">
+                  <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+                    Streaks and goals
+                  </p>
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-5">
+                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                        Daily streak
+                      </p>
+                      <p className="mt-3 text-5xl font-semibold text-white">
+                        {retention.daily_streak}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-300">
+                        {retention.active_today
+                          ? "Active today"
+                          : "Not active today yet"}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-5">
+                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                        Weekly lesson days
+                      </p>
+                      <p className="mt-3 text-5xl font-semibold text-white">
+                        {retention.progress.weekly_lesson_days}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-300">
+                        Target {retention.goals.weekly_lesson_target}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass-panel rounded-[2rem] p-6">
+                  <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+                    Weekly goals
+                  </p>
+                  <div className="mt-6 space-y-4">
+                    <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4">
+                      <div className="flex items-center justify-between text-sm text-slate-200">
+                        <span>Vocabulary items</span>
+                        <span>
+                          {retention.progress.weekly_vocabulary_items}/
+                          {retention.goals.weekly_vocabulary_items}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-white/8">
+                        <div
+                          className="h-2 rounded-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)]"
+                          style={{
+                            width: `${Math.max(
+                              6,
+                              Math.min(
+                                (retention.progress.weekly_vocabulary_items /
+                                  Math.max(retention.goals.weekly_vocabulary_items, 1)) *
+                                  100,
+                                100,
+                              ),
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4">
+                      <div className="flex items-center justify-between text-sm text-slate-200">
+                        <span>Fluency average</span>
+                        <span>
+                          {retention.progress.weekly_fluency_average.toFixed(1)}/
+                          {retention.goals.weekly_fluency_target.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-white/8">
+                        <div
+                          className="h-2 rounded-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)]"
+                          style={{
+                            width: `${Math.max(
+                              6,
+                              Math.min(
+                                (retention.progress.weekly_fluency_average /
+                                  Math.max(retention.goals.weekly_fluency_target, 1)) *
+                                  100,
+                                100,
+                              ),
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4">
+                      <div className="flex items-center justify-between text-sm text-slate-200">
+                        <span>Interview readiness</span>
+                        <span>
+                          {retention.progress.weekly_interview_readiness_average.toFixed(1)}/
+                          {retention.goals.weekly_interview_readiness_target.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-white/8">
+                        <div
+                          className="h-2 rounded-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)]"
+                          style={{
+                            width: `${Math.max(
+                              6,
+                              Math.min(
+                                (retention.progress.weekly_interview_readiness_average /
+                                  Math.max(
+                                    retention.goals.weekly_interview_readiness_target,
+                                    1,
+                                  )) *
+                                  100,
+                                100,
+                              ),
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
               <div className="glass-panel rounded-[2rem] p-6">
@@ -400,10 +681,9 @@ export default function DashboardPage() {
                     </p>
                   ) : (
                     visibleHistory.map((item) => (
-                      <Link
+                      <div
                         key={item.conversation_id}
-                        className="block rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4 transition hover:border-cyan-300/40 hover:bg-slate-900/70"
-                        href={`/chat/${item.conversation_id}`}
+                        className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4 transition hover:border-cyan-300/40 hover:bg-slate-900/70"
                       >
                         <div className="flex items-center justify-between gap-4">
                           <h2 className="text-lg font-medium text-white">
@@ -420,7 +700,21 @@ export default function DashboardPage() {
                           <span>{item.message_count} messages</span>
                           <span>{new Date(item.started_at).toLocaleDateString()}</span>
                         </div>
-                      </Link>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Link
+                            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/40 hover:text-white"
+                            href={`/chat/${item.conversation_id}`}
+                          >
+                            Open chat
+                          </Link>
+                          <Link
+                            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/40 hover:text-white"
+                            href={`/replay/${item.conversation_id}`}
+                          >
+                            Replay
+                          </Link>
+                        </div>
+                      </div>
                     ))
                   )}
                 </div>

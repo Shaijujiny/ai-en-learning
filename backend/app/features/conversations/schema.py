@@ -11,6 +11,7 @@ class ConversationStartRequest(BaseModel):
     language: ConversationLanguage = ConversationLanguage.ENGLISH
     custom_title: str | None = None
     custom_prompt: str | None = None
+    correction_mode: str | None = "delayed"
 
 
 class ConversationStartResponse(BaseModel):
@@ -22,6 +23,7 @@ class ConversationStartResponse(BaseModel):
     language: ConversationLanguage
     custom_title: str | None
     custom_prompt: str | None
+    correction_mode: str
     status: str
     started_at: datetime
     completed_at: datetime | None
@@ -38,6 +40,7 @@ class ConversationDetailResponse(BaseModel):
     language: ConversationLanguage
     custom_title: str | None
     custom_prompt: str | None
+    correction_mode: str
     status: str
     started_at: datetime
     completed_at: datetime | None

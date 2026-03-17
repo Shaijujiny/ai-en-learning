@@ -22,6 +22,15 @@ type Conversation = {
   messages: Message[];
 };
 
+type RubricResponse = {
+  text: string;
+  question: string | null;
+  overall_score: number;
+  scores: Record<string, number>;
+  action_items: string[];
+  notes: Record<string, string>;
+};
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -43,6 +52,9 @@ export default function ChatPage() {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<number | null>(null);
+  const [rubric, setRubric] = useState<RubricResponse | null>(null);
+  const [scoring, setScoring] = useState(false);
+  const [rewritingMode, setRewritingMode] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -113,6 +125,7 @@ export default function ChatPage() {
         messages: [...conversation.messages, data.user_message, data.ai_message],
       });
       setMessage("");
+      setRubric(null);
       void playAiReply(data.ai_message);
     } catch (sendError) {
       setError(
@@ -208,6 +221,66 @@ export default function ChatPage() {
     } finally {
       audioChunksRef.current = [];
       setTranscribing(false);
+    }
+  }
+
+  async function rewriteDraft(mode: string) {
+    if (!token || !message.trim()) {
+      return;
+    }
+
+    setError("");
+    setRewritingMode(mode);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback/rewrite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text: message, mode }),
+      });
+      const data = await readApiData<{ mode: string; rewritten_text: string }>(
+        response,
+      );
+      setMessage(data.rewritten_text);
+    } catch (rewriteError) {
+      setError(
+        rewriteError instanceof Error ? rewriteError.message : "Rewrite failed.",
+      );
+    } finally {
+      setRewritingMode(null);
+    }
+  }
+
+  async function scoreDraft() {
+    if (!token || !conversation || !message.trim()) {
+      return;
+    }
+
+    setError("");
+    setScoring(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback/rubric`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text: message, conversation_id: conversation.id }),
+      });
+      const data = await readApiData<RubricResponse>(response);
+      setRubric(data);
+    } catch (scoreError) {
+      setError(
+        scoreError instanceof Error
+          ? scoreError.message
+          : "Rubric scoring failed.",
+      );
+    } finally {
+      setScoring(false);
     }
   }
 
@@ -436,7 +509,117 @@ export default function ChatPage() {
                 {sending ? "Sending..." : "Send"}
               </button>
             </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
+              <button
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
+                type="button"
+                onClick={() => void rewriteDraft("make natural")}
+                disabled={sending || transcribing || !message.trim() || !token}
+              >
+                {rewritingMode === "make natural" ? "Rewriting..." : "Make natural"}
+              </button>
+              <button
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
+                type="button"
+                onClick={() => void rewriteDraft("make professional")}
+                disabled={sending || transcribing || !message.trim() || !token}
+              >
+                {rewritingMode === "make professional"
+                  ? "Rewriting..."
+                  : "Make professional"}
+              </button>
+              <button
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
+                type="button"
+                onClick={() => void rewriteDraft("make advanced")}
+                disabled={sending || transcribing || !message.trim() || !token}
+              >
+                {rewritingMode === "make advanced" ? "Rewriting..." : "Make advanced"}
+              </button>
+              <button
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
+                type="button"
+                onClick={() => void rewriteDraft("make shorter")}
+                disabled={sending || transcribing || !message.trim() || !token}
+              >
+                {rewritingMode === "make shorter" ? "Rewriting..." : "Make shorter"}
+              </button>
+              <button
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
+                type="button"
+                onClick={() => void rewriteDraft("make interview-ready")}
+                disabled={sending || transcribing || !message.trim() || !token}
+              >
+                {rewritingMode === "make interview-ready"
+                  ? "Rewriting..."
+                  : "Make interview-ready"}
+              </button>
+
+              <span className="mx-1 h-5 w-px bg-white/10" />
+
+              <button
+                className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-100 transition hover:border-cyan-300/50 disabled:opacity-50"
+                type="button"
+                onClick={() => void scoreDraft()}
+                disabled={sending || transcribing || scoring || !message.trim() || !token}
+              >
+                {scoring ? "Scoring..." : "Score quality"}
+              </button>
+            </div>
           </form>
+
+          {rubric ? (
+            <div className="mt-4 rounded-[1.75rem] border border-white/10 bg-slate-950/35 px-4 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-200/80">
+                    Answer quality rubric
+                  </p>
+                  <p className="mt-2 text-sm text-slate-300">
+                    Overall score:{" "}
+                    <span className="font-semibold text-white">
+                      {rubric.overall_score.toFixed(1)}
+                    </span>
+                    {rubric.question ? (
+                      <span className="text-slate-400"> (prompt detected)</span>
+                    ) : null}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {Object.entries(rubric.scores).map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between text-sm text-slate-200">
+                      <span className="capitalize">{key}</span>
+                      <span>{value.toFixed(1)}</span>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-white/8">
+                      <div
+                        className="h-2 rounded-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)]"
+                        style={{ width: `${Math.max(6, Math.min(value, 100))}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-slate-950/45 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                  Next actions
+                </p>
+                <div className="mt-3 space-y-2 text-sm text-slate-200">
+                  {rubric.action_items.map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
       </section>
     </main>

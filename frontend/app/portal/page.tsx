@@ -22,6 +22,11 @@ type User = {
 };
 
 type ConversationLanguage = "English" | "Spanish" | "French" | "German";
+type CorrectionMode =
+  | "no_interruption"
+  | "correct_every_answer"
+  | "delayed"
+  | "major_mistakes_only";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -45,6 +50,7 @@ export default function PortalPage() {
   const [user, setUser] = useState<User | null>(null);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [language, setLanguage] = useState<ConversationLanguage>("English");
+  const [correctionMode, setCorrectionMode] = useState<CorrectionMode>("delayed");
   const [baseScenarioId, setBaseScenarioId] = useState<number>(1);
   const [customTitle, setCustomTitle] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
@@ -118,6 +124,7 @@ export default function PortalPage() {
           language,
           custom_title: options?.customTitle?.trim() || null,
           custom_prompt: options?.customPrompt?.trim() || null,
+          correction_mode: correctionMode,
         }),
       });
 
@@ -177,6 +184,12 @@ export default function PortalPage() {
                 </p>
                 <p className="mt-2 text-lg font-medium text-white">Voice + text</p>
                 <p className="mt-1 text-sm text-slate-400">Scenario-led practice</p>
+                <Link
+                  className="mt-4 inline-flex w-full items-center justify-center rounded-[1.1rem] border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-white transition hover:border-cyan-300/40 hover:bg-cyan-400/10"
+                  href="/speaking"
+                >
+                  Open Speaking Excellence
+                </Link>
               </div>
               <Link
                 className="rounded-[1.2rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-4 py-3 text-center text-sm font-semibold text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
@@ -240,6 +253,29 @@ export default function PortalPage() {
                   </button>
                 ))}
               </div>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {(
+                  [
+                    { value: "no_interruption", label: "No interruption" },
+                    { value: "correct_every_answer", label: "Correct every answer" },
+                    { value: "delayed", label: "Delayed corrections" },
+                    { value: "major_mistakes_only", label: "Major mistakes only" },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.value}
+                    className={`rounded-full border px-3 py-2 text-xs transition ${
+                      correctionMode === item.value
+                        ? "border-orange-300/40 bg-orange-400/15 text-orange-100"
+                        : "border-white/10 bg-white/5 text-slate-300"
+                    }`}
+                    onClick={() => setCorrectionMode(item.value)}
+                    type="button"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-[1.8rem] border border-white/10 bg-slate-950/55 p-6">
@@ -264,6 +300,9 @@ export default function PortalPage() {
                 </span>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300">
                   {language}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300">
+                  {correctionMode.replaceAll("_", " ")}
                 </span>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3">

@@ -19,6 +19,10 @@ from app.database.models import (  # noqa: F401
     user,
     user_level_history,
     user_score,
+    speaking_analysis,
+    vocabulary_review_item,
+    vocabulary_review_session,
+    vocabulary_word,
 )
 
 config = context.config
