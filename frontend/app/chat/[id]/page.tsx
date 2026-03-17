@@ -203,6 +203,7 @@ export default function ChatPage() {
 
       const response = await fetch(`${API_BASE_URL}/speech/transcribe`, {
         method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: formData,
       });
 
@@ -293,6 +294,7 @@ export default function ChatPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ text: aiMessage.content }),
       });

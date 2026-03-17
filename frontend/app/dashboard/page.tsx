@@ -107,6 +107,11 @@ export default function DashboardPage() {
   const [language, setLanguage] = useState<string>("");
   const [scenarioId, setScenarioId] = useState<number | "">("");
   const [mistakeType, setMistakeType] = useState<string>("");
+  const [editingGoals, setEditingGoals] = useState(false);
+  const [savingGoals, setSavingGoals] = useState(false);
+  const [goalDraft, setGoalDraft] = useState<RetentionSummary["goals"] | null>(
+    null,
+  );
 
   useEffect(() => {
     const savedToken = window.localStorage.getItem("token") ?? "";
@@ -169,6 +174,34 @@ export default function DashboardPage() {
 
     void loadRetention();
   }, [token]);
+
+  async function saveGoals() {
+    if (!token || !goalDraft) {
+      return;
+    }
+
+    setSavingGoals(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/retention/goals`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(goalDraft),
+      });
+      const data = await readApiData<{ goals: RetentionSummary["goals"] }>(response);
+      setRetention((current) =>
+        current ? { ...current, goals: data.goals } : current,
+      );
+      setEditingGoals(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update goals.");
+    } finally {
+      setSavingGoals(false);
+    }
+  }
 
   const visibleHistory = showAllHistory
     ? dashboard?.conversation_history ?? []
@@ -409,9 +442,21 @@ export default function DashboardPage() {
             {retention ? (
               <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
                 <div className="glass-panel rounded-[2rem] p-6">
-                  <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
-                    Streaks and goals
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+                      Streaks and goals
+                    </p>
+                    <button
+                      className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/40 hover:text-white"
+                      type="button"
+                      onClick={() => {
+                        setGoalDraft(retention.goals);
+                        setEditingGoals(true);
+                      }}
+                    >
+                      Edit goals
+                    </button>
+                  </div>
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
                     <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-5">
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
@@ -525,6 +570,146 @@ export default function DashboardPage() {
                         />
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {editingGoals && goalDraft ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4">
+                <div className="glass-panel w-full max-w-xl rounded-[2rem] border border-white/10 p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">
+                        Edit goals
+                      </p>
+                      <h2 className="mt-2 text-2xl font-semibold text-white">
+                        Weekly targets
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-300">
+                        These guide streak and progress cards.
+                      </p>
+                    </div>
+                    <button
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:border-cyan-300/40 hover:text-white"
+                      type="button"
+                      onClick={() => setEditingGoals(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                        Weekly lesson days
+                      </span>
+                      <input
+                        className="w-full rounded-[1.25rem] border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none focus:border-cyan-300/40"
+                        type="number"
+                        min={1}
+                        max={14}
+                        value={goalDraft.weekly_lesson_target}
+                        onChange={(event) =>
+                          setGoalDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  weekly_lesson_target: Number(event.target.value),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                        Weekly vocabulary items
+                      </span>
+                      <input
+                        className="w-full rounded-[1.25rem] border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none focus:border-cyan-300/40"
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={goalDraft.weekly_vocabulary_items}
+                        onChange={(event) =>
+                          setGoalDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  weekly_vocabulary_items: Number(event.target.value),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                        Weekly fluency target
+                      </span>
+                      <input
+                        className="w-full rounded-[1.25rem] border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none focus:border-cyan-300/40"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={goalDraft.weekly_fluency_target}
+                        onChange={(event) =>
+                          setGoalDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  weekly_fluency_target: Number(event.target.value),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                        Weekly interview readiness target
+                      </span>
+                      <input
+                        className="w-full rounded-[1.25rem] border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none focus:border-cyan-300/40"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={goalDraft.weekly_interview_readiness_target}
+                        onChange={(event) =>
+                          setGoalDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  weekly_interview_readiness_target: Number(
+                                    event.target.value,
+                                  ),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      className="rounded-[1.2rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-60"
+                      type="button"
+                      disabled={savingGoals}
+                      onClick={() => void saveGoals()}
+                    >
+                      {savingGoals ? "Saving..." : "Save goals"}
+                    </button>
+                    <button
+                      className="rounded-[1.2rem] border border-white/10 bg-white/6 px-5 py-3 text-sm font-medium text-white"
+                      type="button"
+                      onClick={() => setEditingGoals(false)}
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               </div>

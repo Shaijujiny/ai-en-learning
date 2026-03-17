@@ -9,6 +9,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
 cp .env.example .env
+python scripts/check_alembic_revision_ids.py
 alembic upgrade head
 uvicorn app.main:app --reload
 ```

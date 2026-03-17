@@ -262,7 +262,7 @@ Steps covered:
 
 ### Phase 9: Onboarding Assessment System
 
-Status: in progress
+Status: completed
 
 Delivered in current start:
 
@@ -316,7 +316,7 @@ Steps covered:
 
 ### Phase 10: Learning Intelligence
 
-Status: in progress
+Status: completed
 
 Delivered in current start:
 
@@ -349,6 +349,92 @@ Steps covered:
 - Step 38: Personalized Lesson Generator
 - Step 39: Mistake Memory System
 - Step 40: Adaptive Scenario Difficulty
+
+### Phase 11: Vocabulary Retention
+
+Status: completed
+
+Delivered:
+
+- vocabulary retention database layer with:
+  - `vocabulary_words`
+  - `vocabulary_review_sessions`
+  - `vocabulary_review_items`
+
+Steps covered:
+
+- Step 41: Vocabulary Retention Schema
+
+### Phase 12: Speaking Excellence
+
+Status: completed
+
+Delivered:
+
+- speaking excellence analysis with pronunciation, intonation coaching, and confidence scoring
+- speaking analysis persistence table: `speaking_analyses`
+- speaking endpoints:
+  - `POST /speaking/analyze`
+  - `GET /speaking/latest`
+- speaking UI route: `/speaking`
+
+Steps covered:
+
+- Step 45: Pronunciation Scoring
+- Step 46: Intonation Coach
+- Step 47: Confidence Score
+
+### Phase 13: Smart Feedback System
+
+Status: completed
+
+Delivered:
+
+- answer quality rubric scoring (relevance, structure, clarity, grammar, vocabulary, confidence, completeness)
+- rewrite-my-answer modes:
+  - make natural
+  - make professional
+  - make advanced
+  - make shorter
+  - make interview-ready
+- weekly progress report:
+  - strongest/weakest skill
+  - repeated mistakes
+  - weekly trend
+  - next-week goals
+
+Steps covered:
+
+- Step 48: Answer Quality Rubric
+- Step 49: Rewrite My Answer
+- Step 50: Weekly Progress Report
+
+### Phase 14: Premium UX and Retention
+
+Status: completed
+
+Delivered:
+
+- session replay UX:
+  - transcript replay
+  - voice replay (TTS from message text)
+  - inspect corrections
+  - inspect weak moments
+- coach timeline feed for mistakes and score drops/improvements
+- smart dashboard filters (date window, scenario, language, score type, mistake category, CEFR level)
+- streaks and goals:
+  - daily streak
+  - weekly targets stored in `users.goals`
+  - `/retention/summary` and `/retention/goals`
+- message-level analysis persistence to reduce recomputation:
+  - `message_analyses` table for cached grammar/rubric outputs
+
+Steps covered:
+
+- Step 51: Session Replay
+- Step 52: Coach Timeline
+- Step 53: Smart Dashboard Filters
+- Step 54: Streaks and Goals
 
 ### Current Build Summary
 
@@ -479,6 +565,14 @@ Includes:
 - `POST /speech/synthesize`
 - Whisper transcription
 - OpenAI TTS playback
+- protected endpoints with rate limiting and upload size limit (configurable)
+
+### Speaking Excellence
+
+- `POST /speaking/analyze`
+- `GET /speaking/latest`
+- pronunciation scoring, intonation coaching, confidence scoring
+- UI route: `/speaking`
 
 ### Analysis
 
@@ -505,6 +599,12 @@ Includes:
   - `personalized_lessons`
   - `mistake_memory`
 - `GET /analytics/dashboard`
+- dashboard query filters via query params:
+  - `days`, `date_from`, `date_to`
+  - `scenario_id`, `language`
+  - `score_type`
+  - `level`
+  - `mistake_type`
 - trend aggregation
 - conversation history summary
 - current CEFR level and confidence score
@@ -527,6 +627,25 @@ Includes:
 - resume feedback
 - career advice
 - mock interview preparation
+
+### Smart Feedback
+
+- `POST /feedback/rubric`
+- `POST /feedback/rewrite`
+- chat UI has rewrite buttons and rubric scoring panel
+
+### Reports
+
+- `GET /reports/weekly`
+- `GET /reports/timeline`
+- UI routes:
+  - `/reports/weekly`
+  - `/timeline`
+
+### Retention
+
+- `GET /retention/summary`
+- `PUT /retention/goals`
 
 ### Admin
 
@@ -559,6 +678,10 @@ Includes:
 - `/assessment/result`: assessment result page
 - `/chat/[id]`: conversation chat
 - `/dashboard`: user analytics dashboard
+- `/speaking`: speaking excellence analysis
+- `/replay/[id]`: session replay view
+- `/timeline`: coach timeline feed
+- `/reports/weekly`: weekly progress report
 - `/admin/login`: admin login
 - `/admin`: admin panel
 
@@ -592,6 +715,13 @@ Includes:
 - `POST /speech/transcribe`
 - `POST /speech/synthesize`
 
+Note: speech endpoints require authentication.
+
+### Speaking
+
+- `POST /speaking/analyze`
+- `GET /speaking/latest`
+
 ### Analysis
 
 - `POST /analysis/grammar`
@@ -615,6 +745,21 @@ Includes:
 - `GET /coaching/learning-path`
 - `POST /coaching/career-advisor`
 
+### Feedback
+
+- `POST /feedback/rubric`
+- `POST /feedback/rewrite`
+
+### Reports
+
+- `GET /reports/weekly`
+- `GET /reports/timeline`
+
+### Retention
+
+- `GET /retention/summary`
+- `PUT /retention/goals`
+
 ### Admin
 
 - `GET /admin/scenarios`
@@ -631,11 +776,16 @@ Includes:
 - `scenarios`
 - `conversations`
 - `messages`
+- `message_analyses`
 - `user_scores`
 - `skill_metrics`
 - `user_level_history`
 - `personalized_lessons`
 - `mistake_memory`
+- `speaking_analyses`
+- `vocabulary_words`
+- `vocabulary_review_sessions`
+- `vocabulary_review_items`
 
 ## Local Development
 
@@ -660,6 +810,7 @@ DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/ai_interview
 Run migrations:
 
 ```bash
+python scripts/check_alembic_revision_ids.py
 .venv/bin/alembic upgrade head
 ```
 
@@ -709,6 +860,9 @@ Important variables in `backend/.env`:
 - `OPENAI_TTS_MODEL`
 - `OPENAI_TTS_VOICE`
 - `OPENAI_TTS_FORMAT`
+- `SPEECH_MAX_UPLOAD_MB`
+- `SPEECH_TRANSCRIBE_PER_MINUTE`
+- `SPEECH_SYNTHESIZE_PER_MINUTE`
 - `LANGUAGETOOL_API_URL`
 - `LANGUAGETOOL_LANGUAGE`
 - `REDIS_URL`
@@ -732,11 +886,18 @@ Current Alembic revisions:
 - `0006_conversation_customization`
 - `0007_onboarding_assessment`
 - `0008_learning_intelligence`
+- `0009_conversation_correction`
+- `0010_seed_real_life_scenarios`
+- `0011_vocabulary_retention`
+- `0012_speaking_excellence`
+- `0013_retention_goals`
+- `0014_message_analyses`
 
 If you pull new code and get missing-column errors, run:
 
 ```bash
 cd backend
+python scripts/check_alembic_revision_ids.py
 .venv/bin/alembic upgrade head
 ```
 

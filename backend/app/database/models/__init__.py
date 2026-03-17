@@ -2,6 +2,7 @@ from app.database.models.assessment_answer import AssessmentAnswer
 from app.database.models.assessment_session import AssessmentSession
 from app.database.models.conversation import Conversation
 from app.database.models.message import Message
+from app.database.models.message_analysis import MessageAnalysis
 from app.database.models.mistake_memory import MistakeMemory
 from app.database.models.personalized_lesson import PersonalizedLesson
 from app.database.models.scenario import Scenario
@@ -19,6 +20,7 @@ __all__ = [
     "AssessmentSession",
     "Conversation",
     "Message",
+    "MessageAnalysis",
     "MistakeMemory",
     "PersonalizedLesson",
     "Scenario",

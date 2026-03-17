@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.core.analytics_service import analytics_service
 from app.core.feedback_service import feedback_service
+from app.database.models.conversation import Conversation
+from app.database.models.message import Message
+from app.database.models.message_analysis import MessageAnalysis
 from app.database.models.user import User
 from app.database.session import get_db
 from app.features.auth.dependencies import get_current_user
@@ -23,6 +26,28 @@ def score_rubric(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if payload.message_id is not None:
+        message = (
+            db.query(Message)
+            .join(Conversation, Message.conversation_id == Conversation.id)
+            .filter(Message.id == payload.message_id)
+            .filter(Conversation.user_id == current_user.id)
+            .first()
+        )
+        if message is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Message not found",
+            )
+        cached = (
+            db.query(MessageAnalysis)
+            .filter(MessageAnalysis.message_id == message.id)
+            .filter(MessageAnalysis.analysis_type == "rubric")
+            .first()
+        )
+        if cached is not None and isinstance(cached.analysis, dict) and cached.analysis:
+            return build_response("Answer rubric scored", cached.analysis)
+
     try:
         text, resolved_conversation_id = feedback_service.resolve_message_text(
             db=db,
@@ -67,7 +92,6 @@ def score_rubric(
             skill_name=f"answer_quality_{key}",
             metric_value=float(value),
         )
-    db.commit()
 
     response = RubricResponse(
         text=text,
@@ -77,7 +101,29 @@ def score_rubric(
         action_items=result.action_items,
         notes=result.notes,
     )
-    return build_response("Answer rubric scored", response.model_dump(mode="json"))
+    payload_data = response.model_dump(mode="json")
+
+    if payload.message_id is not None:
+        message = (
+            db.query(Message)
+            .join(Conversation, Message.conversation_id == Conversation.id)
+            .filter(Message.id == payload.message_id)
+            .filter(Conversation.user_id == current_user.id)
+            .first()
+        )
+        if message is not None:
+            db.add(
+                MessageAnalysis(
+                    user_id=current_user.id,
+                    conversation_id=message.conversation_id,
+                    message_id=message.id,
+                    analysis_type="rubric",
+                    analysis=payload_data,
+                )
+            )
+
+    db.commit()
+    return build_response("Answer rubric scored", payload_data)
 
 
 @router.post("/rewrite", status_code=status.HTTP_200_OK)

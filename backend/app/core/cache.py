@@ -58,5 +58,18 @@ class CacheService:
         except RedisError:
             error_logger.exception("redis_set_failed key=%s", key)
 
+    def incr_with_ttl(self, key: str, ttl_seconds: int) -> int | None:
+        if self._client is None:
+            return None
+        try:
+            pipe = self._client.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, ttl_seconds, nx=True)
+            value, _ = pipe.execute()
+            return int(value)
+        except RedisError:
+            error_logger.exception("redis_incr_failed key=%s", key)
+            return None
+
 
 cache_service = CacheService()

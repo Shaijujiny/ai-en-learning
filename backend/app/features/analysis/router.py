@@ -10,6 +10,7 @@ from app.core.mistake_memory_service import mistake_memory_service
 from app.core.vocabulary_service import vocabulary_service
 from app.database.models.conversation import Conversation
 from app.database.models.message import Message
+from app.database.models.message_analysis import MessageAnalysis
 from app.database.models.user import User
 from app.database.session import get_db
 from app.features.analysis.schemas import (
@@ -66,6 +67,28 @@ def analyze_grammar(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if payload.message_id is not None:
+        message = (
+            db.query(Message)
+            .join(Conversation, Message.conversation_id == Conversation.id)
+            .filter(Message.id == payload.message_id)
+            .filter(Conversation.user_id == current_user.id)
+            .first()
+        )
+        if message is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Message not found",
+            )
+        cached = (
+            db.query(MessageAnalysis)
+            .filter(MessageAnalysis.message_id == message.id)
+            .filter(MessageAnalysis.analysis_type == "grammar")
+            .first()
+        )
+        if cached is not None and isinstance(cached.analysis, dict) and cached.analysis:
+            return build_response("Grammar analysis completed", cached.analysis)
+
     text = resolve_analysis_text(
         text=payload.text,
         message_id=payload.message_id,
@@ -115,7 +138,29 @@ def analyze_grammar(
         match_count=len(matches),
         matches=matches,
     )
-    return build_response("Grammar analysis completed", response.model_dump(mode="json"))
+    payload_data = response.model_dump(mode="json")
+
+    if payload.message_id is not None:
+        message = (
+            db.query(Message)
+            .join(Conversation, Message.conversation_id == Conversation.id)
+            .filter(Message.id == payload.message_id)
+            .filter(Conversation.user_id == current_user.id)
+            .first()
+        )
+        if message is not None:
+            db.add(
+                MessageAnalysis(
+                    user_id=current_user.id,
+                    conversation_id=message.conversation_id,
+                    message_id=message.id,
+                    analysis_type="grammar",
+                    analysis=payload_data,
+                )
+            )
+            db.commit()
+
+    return build_response("Grammar analysis completed", payload_data)
 
 
 @router.post("/fluency")

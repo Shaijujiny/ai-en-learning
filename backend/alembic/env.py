@@ -12,6 +12,7 @@ from app.database.models import (  # noqa: F401
     assessment_session,
     conversation,
     message,
+    message_analysis,
     mistake_memory,
     personalized_lesson,
     scenario,

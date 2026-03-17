@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     openai_tts_model: str = "gpt-4o-mini-tts"
     openai_tts_voice: str = "alloy"
     openai_tts_format: str = "mp3"
+    speech_max_upload_mb: int = 8
+    speech_transcribe_per_minute: int = 20
+    speech_synthesize_per_minute: int = 30
     languagetool_api_url: str = "https://api.languagetool.org/v2/check"
     languagetool_language: str = "en-US"
     redis_url: str | None = None
@@ -45,6 +48,12 @@ class Settings(BaseSettings):
             self.frontend_origins = self.frontend_origin
         elif self.frontend_origin and self.frontend_origin not in self.frontend_origins:
             self.frontend_origins = f"{self.frontend_origins},{self.frontend_origin}"
+        return self
+
+    @model_validator(mode="after")
+    def ensure_prod_secrets(self) -> "Settings":
+        if (self.app_env or "").lower() in {"production", "prod"} and self.jwt_secret_key == "change-me-in-production":
+            raise ValueError("JWT_SECRET_KEY must be set in production.")
         return self
 
 

@@ -97,13 +97,6 @@ class AnalyticsService:
         )
         end_dt = datetime.combine(date_to, datetime.max.time(), tzinfo=timezone.utc)
 
-        conversation_filter = db.query(Conversation.id).filter(Conversation.user_id == user_id)
-        if scenario_id is not None:
-            conversation_filter = conversation_filter.filter(Conversation.scenario_id == scenario_id)
-        if language:
-            conversation_filter = conversation_filter.filter(Conversation.language == language)
-        conversation_ids = [row[0] for row in conversation_filter.all()]
-
         user = db.query(User).filter(User.id == user_id).first()
         scores_query = db.query(UserScore).filter(UserScore.user_id == user_id)
         if start_dt is not None:
@@ -112,11 +105,14 @@ class AnalyticsService:
         if score_type:
             scores_query = scores_query.filter(UserScore.score_type == score_type)
         if scenario_id is not None or language:
-            # When filtering by scenario/language, focus on conversation-linked scores.
-            if conversation_ids:
-                scores_query = scores_query.filter(UserScore.conversation_id.in_(conversation_ids))
-            else:
-                scores_query = scores_query.filter(UserScore.conversation_id.is_(None))
+            # Apply scenario/language filters via a SQL join, not a Python IN list.
+            scores_query = scores_query.join(
+                Conversation, UserScore.conversation_id == Conversation.id
+            ).filter(Conversation.user_id == user_id)
+            if scenario_id is not None:
+                scores_query = scores_query.filter(Conversation.scenario_id == scenario_id)
+            if language:
+                scores_query = scores_query.filter(Conversation.language == language)
 
         scores = scores_query.order_by(UserScore.created_at.desc()).all()
         skill_metrics = (
@@ -130,11 +126,10 @@ class AnalyticsService:
             .join(Scenario, Conversation.scenario_id == Scenario.id)
             .filter(Conversation.user_id == user_id)
         )
-        if scenario_id is not None or language:
-            if conversation_ids:
-                conversations = conversations.filter(Conversation.id.in_(conversation_ids))
-            else:
-                conversations = conversations.filter(Conversation.id == -1)
+        if scenario_id is not None:
+            conversations = conversations.filter(Conversation.scenario_id == scenario_id)
+        if language:
+            conversations = conversations.filter(Conversation.language == language)
         if start_dt is not None:
             conversations = conversations.filter(Conversation.started_at >= start_dt)
         conversations = conversations.filter(Conversation.started_at <= end_dt)
