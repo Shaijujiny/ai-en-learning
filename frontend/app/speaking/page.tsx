@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { readApiData } from "@/lib/api";
+import { BackButton } from "@/components/BackButton";
 
 type SpeakingAnalysis = {
   analysis_id: number;
@@ -185,12 +186,7 @@ export default function SpeakingPage() {
                 and confidence, then coach sentence stress and tone.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white"
-                  href="/portal"
-                >
-                  Back to portal
-                </Link>
+                <BackButton fallbackHref="/portal" label="Back" />
                 <Link
                   className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white"
                   href="/dashboard"

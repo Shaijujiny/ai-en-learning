@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { readApiData } from "@/lib/api";
+import { useRovingFocus } from "@/lib/rovingFocus";
+import { BackButton } from "@/components/BackButton";
 
 type TimelineEvent =
   | {
@@ -55,6 +57,9 @@ export default function TimelinePage() {
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const eventList = useRovingFocus<HTMLDivElement>({
+    itemCount: timeline?.events.length ?? 0,
+  });
 
   useEffect(() => {
     const storedToken = window.localStorage.getItem("token") ?? "";
@@ -114,12 +119,7 @@ export default function TimelinePage() {
                 <option value={14}>Last 14 days</option>
                 <option value={30}>Last 30 days</option>
               </select>
-              <Link
-                className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white"
-                href="/dashboard"
-              >
-                Back to dashboard
-              </Link>
+              <BackButton fallbackHref="/dashboard" label="Back" />
             </div>
           </div>
         </header>
@@ -134,7 +134,17 @@ export default function TimelinePage() {
 
         {loading ? (
           <div className="glass-panel rounded-[2rem] p-6">
-            <p className="text-sm text-slate-400">Loading timeline...</p>
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex animate-pulse items-center justify-between gap-4 rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-4"
+                >
+                  <div className="h-6 w-24 rounded-full bg-slate-800/80" />
+                  <div className="h-4 w-48 rounded bg-slate-800/80" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -149,12 +159,22 @@ export default function TimelinePage() {
               </span>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <div
+              className="mt-6 space-y-3"
+              role="listbox"
+              aria-label="Timeline events"
+              onKeyDown={eventList.onKeyDown}
+            >
               {timeline.events.length ? (
                 timeline.events.map((event, index) => (
                   <div
                     key={`${event.category}-${index}`}
-                    className="rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-4"
+                    ref={eventList.register(index)}
+                    tabIndex={eventList.tabIndexFor(index)}
+                    role="option"
+                    aria-selected={false}
+                    className="rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-cyan-300/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                    onFocus={() => eventList.setActiveIndex(index)}
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <span
@@ -221,4 +241,3 @@ export default function TimelinePage() {
     </main>
   );
 }
-

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { readApiData } from "@/lib/api";
+import { useRovingFocus } from "@/lib/rovingFocus";
 
 type SkillMetric = {
   skill_name: string;
@@ -209,6 +210,9 @@ export default function DashboardPage() {
   const visibleTrends = showAllTrends
     ? dashboard?.improvement_trends ?? []
     : (dashboard?.improvement_trends ?? []).slice(0, 2);
+  const conversationList = useRovingFocus<HTMLDivElement>({
+    itemCount: visibleHistory.length,
+  });
 
   return (
     <main className="app-shell grid-overlay px-5 py-6 text-slate-100 md:px-8 md:py-8">
@@ -859,41 +863,59 @@ export default function DashboardPage() {
                     {dashboard.conversation_history.length} total
                   </span>
                 </div>
-                <div className="scrollbar-subtle mt-4 flex-1 space-y-4 overflow-y-auto pr-1">
+                <div
+                  className="scrollbar-subtle mt-4 flex-1 space-y-4 overflow-y-auto pr-1"
+                  role="listbox"
+                  aria-label="Conversation history"
+                  onKeyDown={conversationList.onKeyDown}
+                >
                   {dashboard.conversation_history.length === 0 ? (
                     <p className="text-sm text-slate-400">
                       No conversation history available yet.
                     </p>
                   ) : (
-                    visibleHistory.map((item) => (
+                    visibleHistory.map((item, index) => (
                       <div
                         key={item.conversation_id}
-                        className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4 transition hover:border-cyan-300/40 hover:bg-slate-900/70"
+                        ref={conversationList.register(index)}
+                        tabIndex={conversationList.tabIndexFor(index)}
+                        role="option"
+                        aria-selected={false}
+                        className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-slate-900/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                        onFocus={() => {
+                          conversationList.setActiveIndex(index);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            window.location.assign(`/replay/${item.conversation_id}`);
+                          }
+                        }}
                       >
                         <div className="flex items-center justify-between gap-4">
-                          <h2 className="text-lg font-medium text-white">
+                          <h2 className="text-lg font-medium text-white line-clamp-1">
                             {item.scenario_title}
                           </h2>
                           <span className="rounded-full border border-cyan-300/30 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-cyan-200">
                             {item.status}
                           </span>
                         </div>
-                        <p className="mt-3 text-sm text-slate-300">
+                        <p className="mt-3 text-sm leading-relaxed text-slate-300 line-clamp-2">
                           {item.latest_message ?? "No messages recorded yet."}
                         </p>
-                        <div className="mt-4 flex items-center justify-between gap-4 text-xs text-slate-400">
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
                           <span>{item.message_count} messages</span>
                           <span>{new Date(item.started_at).toLocaleDateString()}</span>
                         </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
                           <Link
-                            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/40 hover:text-white"
+                            className="min-h-[44px] rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center text-sm text-slate-200 transition-all duration-200 ease-out hover:border-cyan-300/40 hover:bg-cyan-400/10 hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                             href={`/chat/${item.conversation_id}`}
                           >
                             Open chat
                           </Link>
                           <Link
-                            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/40 hover:text-white"
+                            className="min-h-[44px] rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center text-sm text-slate-200 transition-all duration-200 ease-out hover:border-cyan-300/40 hover:bg-cyan-400/10 hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                             href={`/replay/${item.conversation_id}`}
                           >
                             Replay

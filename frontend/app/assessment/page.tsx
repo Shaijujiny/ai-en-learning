@@ -217,10 +217,7 @@ export default function AssessmentPage() {
           return;
         }
 
-        if (data.status === "skipped") {
-          router.replace("/portal");
-          return;
-        }
+        // If the user skipped previously, allow them to complete the assessment later.
 
         setQuestions(data.questions);
         setAnswers(

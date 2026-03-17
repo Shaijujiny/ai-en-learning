@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { AppShell } from "@/components/AppShell";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -28,7 +29,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${instrumentSans.variable} ${spaceGrotesk.variable}`}
       >
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { readApiData } from "@/lib/api";
+import { BackButton } from "@/components/BackButton";
 
 type Message = {
   id: number;
@@ -383,6 +384,7 @@ export default function ChatPage() {
           </div>
 
           <div className="mt-auto flex flex-col gap-3 pt-8">
+            <BackButton fallbackHref="/portal" label="Back" />
             <Link
               className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-100 transition hover:border-cyan-300/40 hover:bg-cyan-400/10"
               href="/portal"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { readApiData } from "@/lib/api";
+import { BackButton } from "@/components/BackButton";
 
 type Message = {
   id: number;
@@ -215,17 +216,12 @@ export default function ReplayPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
+              <BackButton fallbackHref="/dashboard" label="Back" />
               <Link
                 className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white"
                 href={`/chat/${params.id}`}
               >
                 Open chat
-              </Link>
-              <Link
-                className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white"
-                href="/dashboard"
-              >
-                Back to dashboard
               </Link>
             </div>
           </div>

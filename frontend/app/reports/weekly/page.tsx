@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { readApiData } from "@/lib/api";
+import { BackButton } from "@/components/BackButton";
 
 type SkillSummary = { skill_name: string | null; metric_value: number };
 
@@ -95,12 +96,7 @@ export default function WeeklyReportPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link
-                className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white"
-                href="/dashboard"
-              >
-                Back to dashboard
-              </Link>
+              <BackButton fallbackHref="/dashboard" label="Back" />
               <Link
                 className="rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white"
                 href="/portal"
@@ -121,7 +117,20 @@ export default function WeeklyReportPage() {
 
         {loading ? (
           <div className="glass-panel rounded-[2rem] p-6">
-            <p className="text-sm text-slate-400">Loading weekly report...</p>
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex animate-pulse items-center gap-4 rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-4"
+                >
+                  <div className="h-10 w-10 rounded-full bg-slate-800/80" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-1/3 rounded bg-slate-800/80" />
+                    <div className="h-3 w-2/3 rounded bg-slate-800/80" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -256,4 +265,3 @@ export default function WeeklyReportPage() {
     </main>
   );
 }
-
