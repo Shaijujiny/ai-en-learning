@@ -8,6 +8,7 @@ from app.features.conversations.schema import (
     ConversationDetailResponse,
     ConversationStartRequest,
     ConversationStartResponse,
+    ConversationSummaryResponse,
 )
 
 
@@ -38,6 +39,22 @@ class ConversationService:
         db.commit()
         db.refresh(conversation)
         return ConversationStartResponse.model_validate(conversation).model_dump(mode="json")
+
+    def list_conversations(
+        self, db: Session, *, current_user: User, skip: int = 0, limit: int = 20
+    ) -> dict:
+        items, total = conversation_repository.list_user_conversations(
+            db, user_id=current_user.id, skip=skip, limit=limit
+        )
+        return {
+            "items": [
+                ConversationSummaryResponse.model_validate(c).model_dump(mode="json")
+                for c in items
+            ],
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        }
 
     def get_conversation(self, db: Session, *, conversation_id: int, current_user: User) -> dict:
         conversation = conversation_repository.get_user_conversation(

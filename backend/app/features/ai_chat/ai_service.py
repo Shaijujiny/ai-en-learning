@@ -1,3 +1,4 @@
+import hashlib
 import json
 import time
 from collections.abc import Sequence
@@ -44,14 +45,16 @@ class AIChatService:
         )
         cache_key = cache_service.make_key(
             "ai-response",
-            json.dumps(
-                {
-                    "scenario_title": scenario_title,
-                    "prompt": prompt,
-                    "conversation_history": list(conversation_history),
-                },
-                sort_keys=True,
-            ),
+            hashlib.sha256(
+                json.dumps(
+                    {
+                        "scenario_title": scenario_title,
+                        "correction_mode": correction_mode,
+                        "history": list(conversation_history),
+                    },
+                    sort_keys=True,
+                ).encode()
+            ).hexdigest(),
         )
         cached_reply = cache_service.get_string(cache_key)
         if cached_reply is not None:

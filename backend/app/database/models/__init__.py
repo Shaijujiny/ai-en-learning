@@ -13,6 +13,7 @@ from app.database.models.user_score import UserScore
 from app.database.models.speaking_analysis import SpeakingAnalysis
 from app.database.models.vocabulary_review_item import VocabularyReviewItem
 from app.database.models.vocabulary_review_session import VocabularyReviewSession
+from app.database.models.user_credit import UserCredit
 from app.database.models.vocabulary_word import VocabularyWord
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "UserScore",
     "SpeakingAnalysis",
     "VocabularyReviewItem",
+    "UserCredit",
     "VocabularyReviewSession",
     "VocabularyWord",
 ]

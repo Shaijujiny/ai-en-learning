@@ -58,3 +58,6 @@ class User(Base):
     speaking_analyses: Mapped[list["SpeakingAnalysis"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    credits: Mapped["UserCredit | None"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )

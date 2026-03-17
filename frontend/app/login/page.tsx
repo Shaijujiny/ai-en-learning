@@ -15,8 +15,18 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [attempts, setAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (lockoutUntil && Date.now() < lockoutUntil) {
+      const remainingMinutes = Math.ceil((lockoutUntil - Date.now()) / 60000);
+      setError(`⚠️ Too many attempts. Try again in ${remainingMinutes} minutes.`);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -27,10 +37,22 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
+      if (!response.ok) {
+        setAttempts((prev) => prev + 1);
+        if (attempts + 1 >= 3) {
+          const lockoutTime = Date.now() + 5 * 60 * 1000;
+          setLockoutUntil(lockoutTime);
+          throw new Error("⚠️ Too many attempts. Try again in 5 minutes");
+        }
+      }
+
       const data = await readApiData<{
         access_token: string;
         next_route: string;
       }>(response);
+
+      setAttempts(0);
+      setLockoutUntil(null);
       window.localStorage.setItem("token", data.access_token);
       router.push(data.next_route || "/portal");
     } catch (loginError) {

@@ -11,6 +11,19 @@ from app.utils.helpers import build_response
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
+@router.get("")
+def list_conversations(
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return build_response(
+        "Conversation list",
+        conversation_service.list_conversations(db, current_user=current_user, skip=skip, limit=limit),
+    )
+
+
 @router.post("/start", status_code=status.HTTP_201_CREATED)
 def start_conversation(
     payload: ConversationStartRequest,

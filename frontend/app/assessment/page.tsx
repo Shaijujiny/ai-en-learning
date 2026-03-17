@@ -383,7 +383,7 @@ export default function AssessmentPage() {
                 <div className="mt-5 h-3 rounded-full bg-white/8">
                   <div
                     className="h-3 rounded-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)] transition-all"
-                    style={{ width: `${Math.max(progressPercent, 8)}%` }}
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
@@ -403,57 +403,7 @@ export default function AssessmentPage() {
           </div>
         </header>
 
-        <section className="glass-panel rounded-[2rem] p-5 md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">
-                Question map
-              </p>
-              <p className="mt-2 text-sm text-slate-300">
-                Jump between prompts quickly. The active prompt is highlighted.
-              </p>
-            </div>
-            <div className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-100">
-              {completedCount} completed
-            </div>
-          </div>
-          <div className="scrollbar-subtle mt-4 flex gap-3 overflow-x-auto pb-2">
-            {questions.map((question, index) => {
-              const answer = answers[question.key]?.trim() ?? "";
-              const completed = answer.length >= question.min_length;
-              const active = index === currentIndex;
-              return (
-                <button
-                  key={question.key}
-                  className={`min-w-[220px] rounded-[1.2rem] border px-4 py-3 text-left transition ${
-                    active
-                      ? "border-cyan-300/40 bg-cyan-400/10"
-                      : completed
-                        ? "border-emerald-300/30 bg-emerald-400/10"
-                        : "border-white/10 bg-white/5 hover:border-white/20"
-                  }`}
-                  onClick={() => setCurrentIndex(index)}
-                  type="button"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                      Q{question.order}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                      {completed ? "Ready" : "Draft"}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-white">
-                    {question.title}
-                  </p>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.22em] text-cyan-300">
-                    {categoryLabel(question.category)}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        {/* Removed redundant horizontal question list to ensure clean rendering */}
 
         <section className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
           <aside className="glass-panel rounded-[2rem] p-4 md:p-5">

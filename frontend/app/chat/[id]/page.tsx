@@ -56,10 +56,20 @@ export default function ChatPage() {
   const [rubric, setRubric] = useState<RubricResponse | null>(null);
   const [scoring, setScoring] = useState(false);
   const [rewritingMode, setRewritingMode] = useState<string | null>(null);
+  const [credits, setCredits] = useState(12);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversation?.messages]);
 
   useEffect(() => {
     const savedToken = window.localStorage.getItem("token") ?? "";
@@ -374,12 +384,18 @@ export default function ChatPage() {
               </p>
             </div>
             <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/40 p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                Messages
-              </p>
-              <p className="mt-2 text-lg font-medium text-white">
-                {conversation?.messages.length ?? 0}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Credits
+                </p>
+                <span className="text-xs text-cyan-300 font-medium">🔥 {credits} / 20</span>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-white/5 overflow-hidden">
+                <div 
+                  className="h-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)] transition-all duration-500"
+                  style={{ width: `${(credits / 20) * 100}%` }}
+                />
+              </div>
             </div>
           </div>
 
@@ -429,7 +445,14 @@ export default function ChatPage() {
             ) : null}
 
             {loading ? (
-              <p className="text-sm text-slate-400">Loading conversation...</p>
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                    <div className="h-20 w-[60%] animate-pulse rounded-[1.6rem] bg-white/5 border border-white/10" />
+                  </div>
+                ))}
+                <p className="text-center text-sm text-slate-500 animate-pulse">Loading conversation history...</p>
+              </div>
             ) : null}
 
             {conversation?.messages.map((entry) => (
@@ -463,6 +486,8 @@ export default function ChatPage() {
                 <p className="whitespace-pre-wrap">{entry.content}</p>
               </div>
             ))}
+
+            <div ref={messagesEndRef} />
 
             {conversation && conversation.messages.length === 0 ? (
               <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-slate-950/25 px-5 py-6 text-sm text-slate-400">
@@ -506,20 +531,27 @@ export default function ChatPage() {
                   transcribing ||
                   !message.trim() ||
                   !conversation ||
-                  !token
+                  !token ||
+                  credits === 0
                 }
                 type="submit"
               >
-                {sending ? "Sending..." : "Send"}
+                {sending ? "Sending..." : credits === 0 ? "❌ No credits" : "Send"}
               </button>
             </div>
+
+            {credits === 0 && (
+              <p className="mt-2 text-center text-xs text-rose-300">
+                ❌ No credits left. Come back tomorrow
+              </p>
+            )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
               <button
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
                 type="button"
                 onClick={() => void rewriteDraft("make natural")}
-                disabled={sending || transcribing || !message.trim() || !token}
+                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
               >
                 {rewritingMode === "make natural" ? "Rewriting..." : "Make natural"}
               </button>
@@ -527,7 +559,7 @@ export default function ChatPage() {
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
                 type="button"
                 onClick={() => void rewriteDraft("make professional")}
-                disabled={sending || transcribing || !message.trim() || !token}
+                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
               >
                 {rewritingMode === "make professional"
                   ? "Rewriting..."
@@ -537,7 +569,7 @@ export default function ChatPage() {
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
                 type="button"
                 onClick={() => void rewriteDraft("make advanced")}
-                disabled={sending || transcribing || !message.trim() || !token}
+                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
               >
                 {rewritingMode === "make advanced" ? "Rewriting..." : "Make advanced"}
               </button>
@@ -545,7 +577,7 @@ export default function ChatPage() {
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
                 type="button"
                 onClick={() => void rewriteDraft("make shorter")}
-                disabled={sending || transcribing || !message.trim() || !token}
+                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
               >
                 {rewritingMode === "make shorter" ? "Rewriting..." : "Make shorter"}
               </button>
@@ -553,7 +585,7 @@ export default function ChatPage() {
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
                 type="button"
                 onClick={() => void rewriteDraft("make interview-ready")}
-                disabled={sending || transcribing || !message.trim() || !token}
+                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
               >
                 {rewritingMode === "make interview-ready"
                   ? "Rewriting..."
@@ -566,7 +598,7 @@ export default function ChatPage() {
                 className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-100 transition hover:border-cyan-300/50 disabled:opacity-50"
                 type="button"
                 onClick={() => void scoreDraft()}
-                disabled={sending || transcribing || scoring || !message.trim() || !token}
+                disabled={sending || transcribing || scoring || !message.trim() || !token || !conversation || !!error}
               >
                 {scoring ? "Scoring..." : "Score quality"}
               </button>

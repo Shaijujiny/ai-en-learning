@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database.models.conversation import Conversation
@@ -114,7 +115,13 @@ class AnalyticsService:
             if language:
                 scores_query = scores_query.filter(Conversation.language == language)
 
-        scores = scores_query.order_by(UserScore.created_at.desc()).all()
+        # Compute average via SQL — avoids loading every row into Python.
+        avg_subquery = scores_query.with_entities(func.avg(UserScore.score_value))
+        avg_result = avg_subquery.scalar()
+        performance_score = round(float(avg_result), 1) if avg_result is not None else 0.0
+
+        # Only load the recent 12 rows needed for trend lines.
+        scores = scores_query.order_by(UserScore.created_at.desc()).limit(12).all()
         skill_metrics = (
             db.query(SkillMetric)
             .filter(SkillMetric.user_id == user_id)
@@ -166,9 +173,6 @@ class AnalyticsService:
             .limit(6)
             .all()
         )
-
-        score_values = [float(score.score_value) for score in scores]
-        performance_score = round(sum(score_values) / len(score_values), 1) if score_values else 0.0
 
         trend_by_type: dict[str, list[dict]] = defaultdict(list)
         for score in reversed(scores[-12:]):

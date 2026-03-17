@@ -9,5 +9,9 @@ router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
 @router.get("")
-def list_scenarios(db: Session = Depends(get_db)):
-    return build_response("Scenario list", scenario_service.list_scenarios(db))
+def list_scenarios(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    return build_response("Scenario list", scenario_service.list_scenarios(db, skip=skip, limit=limit))

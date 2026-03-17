@@ -56,6 +56,21 @@ export default function PortalPage() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState<number | "custom" | null>(null);
+  const [visibleCount, setVisibleCount] = useState(4);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop >=
+        document.documentElement.offsetHeight - 100
+      ) {
+        setVisibleCount((prev) => Math.min(prev + 4, scenarios.length));
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [scenarios.length]);
 
   useEffect(() => {
     const storedToken = window.localStorage.getItem("token") ?? "";
@@ -79,7 +94,7 @@ export default function PortalPage() {
       try {
         const [meData, scenarioData] = await Promise.all([
           readApiData<User>(meResponse),
-          readApiData<Scenario[]>(scenariosResponse),
+          readApiData<{ items: Scenario[] }>(scenariosResponse),
         ]);
 
         if (meData.assessment_status === "pending") {
@@ -87,10 +102,11 @@ export default function PortalPage() {
           return;
         }
 
+        const items = scenarioData.items ?? [];
         setUser(meData);
-        setScenarios(scenarioData);
-        if (scenarioData.length > 0) {
-          setBaseScenarioId((current) => current || scenarioData[0].id);
+        setScenarios(items);
+        if (items.length > 0) {
+          setBaseScenarioId((current) => current || items[0].id);
         }
       } catch {
         setError("Failed to load user portal.");
@@ -325,7 +341,7 @@ export default function PortalPage() {
 
         <div className="grid gap-5 2xl:grid-cols-[1.08fr_0.92fr]">
           <section className="grid gap-4 md:grid-cols-2">
-            {scenarios.map((scenario, index) => (
+            {scenarios.slice(0, visibleCount).map((scenario, index) => (
               <button
                 key={scenario.id}
                 className="glass-panel group relative overflow-hidden rounded-[2rem] p-6 text-left transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30"
@@ -366,6 +382,18 @@ export default function PortalPage() {
                 </div>
               </button>
             ))}
+
+            {visibleCount < scenarios.length && (
+              <div className="col-span-full py-10 flex justify-center">
+                <button
+                  className="rounded-full border border-white/10 bg-white/5 px-8 py-3 text-sm text-slate-300 hover:border-cyan-300/40 hover:text-white transition"
+                  onClick={() => setVisibleCount((prev) => Math.min(prev + 4, scenarios.length))}
+                  type="button"
+                >
+                  Load more scenarios...
+                </button>
+              </div>
+            )}
           </section>
 
           <section className="glass-panel rounded-[2rem] p-6 md:p-7">
@@ -420,11 +448,17 @@ export default function PortalPage() {
             </div>
 
             <label className="mt-4 block rounded-[1.4rem] border border-white/10 bg-slate-950/45 p-4">
-              <span className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
-                Instruction Prompt
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                  Instruction Prompt
+                </span>
+                <span className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                  {customPrompt.length} / 5000 characters
+                </span>
+              </div>
               <textarea
                 className="mt-3 min-h-56 w-full rounded-[1rem] border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                maxLength={5000}
                 onChange={(event) => setCustomPrompt(event.target.value)}
                 placeholder="Example: Act like a senior engineering manager interviewing me for a backend platform role. Ask one question at a time, push deeper on weak answers, focus on architecture, tradeoffs, and reliability."
                 value={customPrompt}

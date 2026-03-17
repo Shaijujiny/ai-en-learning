@@ -136,14 +136,24 @@ export default function DashboardPage() {
         if (scenarioId) query.set("scenario_id", String(scenarioId));
         if (mistakeType) query.set("mistake_type", mistakeType);
 
-        const response = await fetch(`${API_BASE_URL}/analytics/dashboard?${query.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const [dbResponse, retentionResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/analytics/dashboard?${query.toString()}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetch(`${API_BASE_URL}/retention/summary`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
-        const data = await readApiData<DashboardData>(response);
-        setDashboard(data);
+        const [dashboardData, retentionData] = await Promise.all([
+          readApiData<DashboardData>(dbResponse),
+          readApiData<RetentionSummary>(retentionResponse),
+        ]);
+
+        setDashboard(dashboardData);
+        setRetention(retentionData);
       } catch {
         setError(
           `Unable to reach the API at ${API_BASE_URL}. Check that the backend is running and CORS is configured for this frontend origin.`,
@@ -156,25 +166,6 @@ export default function DashboardPage() {
     void loadDashboard();
   }, [days, language, mistakeType, scoreType, scenarioId, token]);
 
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    async function loadRetention() {
-      try {
-        const response = await fetch(`${API_BASE_URL}/retention/summary`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await readApiData<RetentionSummary>(response);
-        setRetention(data);
-      } catch {
-        // Keep dashboard usable even if retention summary fails.
-      }
-    }
-
-    void loadRetention();
-  }, [token]);
 
   async function saveGoals() {
     if (!token || !goalDraft) {
@@ -231,13 +222,37 @@ export default function DashboardPage() {
                 analytics surface.
               </p>
             </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/50 hover:text-white"
-              href="/timeline"
-            >
-              Coach timeline
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/40 p-3 flex items-center gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
+                      Credits
+                    </p>
+                    <span className="text-sm font-semibold text-cyan-300">🔥 12 / 20</span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-32 rounded-full bg-white/5 overflow-hidden">
+                    <div 
+                      className="h-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)] transition-all duration-700"
+                      style={{ width: '60%' }} // Mock 12/20
+                    />
+                  </div>
+                </div>
+                <button
+                  className="rounded-full bg-white/5 border border-white/10 p-2 hover:bg-white/10 transition"
+                  onClick={() => alert("You've used all credits today. (Preview Mode)")}
+                  title="Credit Info"
+                >
+                  ℹ️
+                </button>
+              </div>
+
+              <Link
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/50 hover:text-white"
+                href="/timeline"
+              >
+                Coach timeline
+              </Link>
             <Link
               className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/50 hover:text-white"
               href="/reports/weekly"
