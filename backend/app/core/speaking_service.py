@@ -59,7 +59,7 @@ _STOPWORDS = {
     "your",
 }
 
-_FILLER_TOKENS = {"um", "uh", "er", "ah", "hmm"}
+_FILLER_TOKENS = {"um", "uh", "er", "ah", "hmm", "like", "okay", "right", "well"}
 _FILLER_PHRASES = {"you know", "i mean", "kind of", "sort of", "maybe", "i think"}
 
 _COMPLETENESS_MARKERS = {
@@ -337,6 +337,46 @@ def build_intonation_coaching(transcript: str) -> dict:
     return {"suggestions": suggestions[:5], "rhythm_markup": rhythm_markup[:400]}
 
 
+def _tag_words(transcript: str, word_timestamps: list[dict]) -> list[dict]:
+    """Return per-word list with pronunciation flags: 'filler' | 'uncertain' | 'ok'."""
+    tagged: list[dict] = []
+
+    if word_timestamps:
+        for wt in word_timestamps:
+            raw_word = str(wt.get("word", "")).strip()
+            clean = raw_word.lower().strip(".,!?;:'\"-")
+            prob = wt.get("probability")
+            start = wt.get("start")
+            end = wt.get("end")
+
+            if clean in _FILLER_TOKENS:
+                flag = "filler"
+            elif isinstance(prob, (int, float)) and float(prob) < 0.65:
+                flag = "uncertain"
+            else:
+                flag = "ok"
+
+            tagged.append(
+                {
+                    "word": raw_word,
+                    "start": float(start) if isinstance(start, (int, float)) else None,
+                    "end": float(end) if isinstance(end, (int, float)) else None,
+                    "probability": round(float(prob), 3) if isinstance(prob, (int, float)) else None,
+                    "flag": flag,
+                }
+            )
+    else:
+        # Fallback: tag from plain transcript text
+        for raw_word in transcript.split():
+            clean = raw_word.lower().strip(".,!?;:'\"-")
+            flag = "filler" if clean in _FILLER_TOKENS else "ok"
+            tagged.append(
+                {"word": raw_word, "start": None, "end": None, "probability": None, "flag": flag}
+            )
+
+    return tagged
+
+
 class SpeakingService:
     def analyze(self, *, transcript: str, transcription_payload: dict) -> dict:
         transcript = _normalize_text(transcript)
@@ -380,9 +420,11 @@ class SpeakingService:
         confidence_score = _clamp(_round1(confidence))
 
         intonation = build_intonation_coaching(transcript)
+        word_scores = _tag_words(transcript, word_timestamps)
 
         return {
             "transcript": transcript,
+            "word_scores": word_scores,
             "pronunciation": {
                 "overall_score": pronunciation_score,
                 "clarity": {"score": clarity_score},

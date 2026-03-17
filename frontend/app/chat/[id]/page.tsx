@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { readApiData } from "@/lib/api";
-import { BackButton } from "@/components/BackButton";
 
+/* ─── Types ─── */
 type Message = {
   id: number;
   conversation_id: number;
@@ -32,15 +32,237 @@ type RubricResponse = {
   notes: Record<string, string>;
 };
 
+type CoachFeedback = {
+  text: string;
+  grammar_match_count: number;
+  fluency_score: number;
+  vocabulary_score: number;
+  summary: string;
+  grammar_suggestions: string[];
+  interview_answer_suggestions: string[];
+};
+
+/* ─── Coach personality modes ─── */
+type CoachMode = "friendly" | "strict" | "casual";
+
+const COACH_MODES: Record<CoachMode, { label: string; icon: string; desc: string; color: string; borderColor: string; avatarGrad: string }> = {
+  friendly: {
+    label: "Friendly Teacher",
+    icon: "🌟",
+    desc: "Warm, encouraging, detailed explanations",
+    color: "text-emerald-200",
+    borderColor: "border-emerald-300/25",
+    avatarGrad: "bg-[linear-gradient(135deg,#34d399,#6ee7b7)]",
+  },
+  strict: {
+    label: "Strict Interviewer",
+    icon: "💼",
+    desc: "Professional, direct, no easy passes",
+    color: "text-violet-200",
+    borderColor: "border-violet-300/25",
+    avatarGrad: "bg-[linear-gradient(135deg,#8b5cf6,#a78bfa)]",
+  },
+  casual: {
+    label: "Casual Friend",
+    icon: "😎",
+    desc: "Relaxed, encouraging, conversational",
+    color: "text-amber-200",
+    borderColor: "border-amber-300/25",
+    avatarGrad: "bg-[linear-gradient(135deg,#fbbf24,#fcd34d)]",
+  },
+};
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-function formatTimestamp(timestamp: string) {
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function formatTimestamp(ts: string) {
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
+
+/* ─── Animated typing dots ─── */
+function TypingIndicator({ mode }: { mode: CoachMode }) {
+  const m = COACH_MODES[mode];
+  return (
+    <div className="flex items-end gap-3 max-w-[80%]">
+      <div className={`flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full ${m.avatarGrad} text-slate-950 text-xs font-bold shadow-lg`}>
+        {m.icon}
+      </div>
+      <div className="rounded-[1.6rem] rounded-bl-sm border border-white/10 bg-[rgba(7,16,29,0.9)] px-5 py-4">
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="h-2 w-2 rounded-full bg-slate-400"
+              style={{ animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Voice waveform ─── */
+function Waveform({ active }: { active: boolean }) {
+  return (
+    <span className="flex items-end gap-[3px] h-4">
+      {[3, 5, 7, 5, 3, 6, 4].map((h, i) => (
+        <span key={i} className="w-[3px] rounded-full bg-rose-400"
+          style={{ height: `${h * 2}px`, animation: active ? `waveBar 0.7s ease-in-out ${i * 0.08}s infinite alternate` : "none", opacity: active ? 1 : 0.3 }} />
+      ))}
+    </span>
+  );
+}
+
+/* ─── Live Coaching Feedback Card ─── */
+function CoachFeedbackCard({
+  feedback,
+  mode,
+  onDismiss,
+  onApplyBetter,
+}: {
+  feedback: CoachFeedback;
+  mode: CoachMode;
+  onDismiss: () => void;
+  onApplyBetter: (text: string) => void;
+}) {
+  const m = COACH_MODES[mode];
+  const overallGood = feedback.fluency_score >= 65 && feedback.grammar_match_count <= 2;
+
+  // Parse grammar suggestions into "what's wrong" + "better version"
+  const goodPoints: string[] = [];
+  const improvements: string[] = [];
+  const betterVersions: string[] = [];
+
+  // Fluency signal → good/improve
+  if (feedback.fluency_score >= 70) {
+    goodPoints.push("Good flow and sentence length");
+  } else if (feedback.fluency_score < 50) {
+    improvements.push("Try writing longer, connected sentences");
+  }
+
+  // Vocabulary signal
+  if (feedback.vocabulary_score >= 70) {
+    goodPoints.push("Nice vocabulary variety");
+  } else {
+    improvements.push("Use more varied word choices");
+  }
+
+  // Grammar
+  if (feedback.grammar_match_count === 0) {
+    goodPoints.push("No grammar issues detected");
+  } else {
+    improvements.push(...feedback.grammar_suggestions.slice(0, 2));
+  }
+
+  // Better versions from interview suggestions
+  betterVersions.push(...feedback.interview_answer_suggestions.slice(0, 2));
+
+  return (
+    <div className={`rounded-[1.75rem] border ${m.borderColor} bg-slate-950/70 backdrop-blur-sm overflow-hidden`}
+      style={{ animation: "slideUp 0.35s cubic-bezier(0.22,1,0.36,1) both" }}>
+
+      {/* Header */}
+      <div className={`flex items-center justify-between border-b border-white/8 px-5 py-3`}>
+        <div className="flex items-center gap-2.5">
+          <span className={`flex h-7 w-7 items-center justify-center rounded-full ${m.avatarGrad} text-sm`}>{m.icon}</span>
+          <div>
+            <p className="text-xs font-semibold text-white">{m.label} Feedback</p>
+            <p className={`text-[10px] ${m.color}`}>{feedback.fluency_score >= 60 ? "Good response" : "Room to improve"}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Score pill */}
+          <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${
+            overallGood ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-200" : "border-amber-300/30 bg-amber-500/15 text-amber-200"
+          }`}>
+            {Math.round((feedback.fluency_score + feedback.vocabulary_score) / 2)}/100
+          </span>
+          <button className="rounded-full p-1.5 text-slate-500 hover:text-white transition" onClick={onDismiss} type="button">✕</button>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-4">
+        {/* Summary */}
+        {feedback.summary && (
+          <p className="text-sm text-slate-300 leading-6 italic border-l-2 border-cyan-400/30 pl-3">
+            &ldquo;{feedback.summary}&rdquo;
+          </p>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* ✅ What was good */}
+          {goodPoints.length > 0 && (
+            <div className="rounded-[1.3rem] border border-emerald-300/15 bg-emerald-500/8 p-4">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-400 font-semibold mb-2.5">👍 Good</p>
+              <div className="space-y-1.5">
+                {goodPoints.map((p, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-emerald-100">
+                    <span className="mt-0.5 flex-shrink-0 text-emerald-400">✓</span>
+                    <span>{p}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ⚠️ Improve */}
+          {improvements.length > 0 && (
+            <div className="rounded-[1.3rem] border border-amber-300/15 bg-amber-500/8 p-4">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400 font-semibold mb-2.5">⚠ Improve</p>
+              <div className="space-y-1.5">
+                {improvements.map((imp, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-amber-100">
+                    <span className="mt-0.5 flex-shrink-0 text-amber-400">→</span>
+                    <span>{imp}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 💡 Better versions */}
+        {betterVersions.length > 0 && (
+          <div className="rounded-[1.3rem] border border-cyan-300/15 bg-cyan-500/8 p-4">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-400 font-semibold mb-2.5">💡 Better version</p>
+            <div className="space-y-3">
+              {betterVersions.map((bv, i) => (
+                <div key={i} className="flex items-start justify-between gap-3">
+                  <p className="text-xs text-cyan-100 leading-5 italic flex-1">&ldquo;{bv}&rdquo;</p>
+                  <button
+                    className="flex-shrink-0 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-[10px] text-cyan-200 hover:bg-cyan-500/20 transition"
+                    onClick={() => onApplyBetter(bv)}
+                    type="button"
+                  >
+                    Use this
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Score breakdown mini */}
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: "Fluency", val: feedback.fluency_score, color: "bg-cyan-400" },
+            { label: "Vocabulary", val: feedback.vocabulary_score, color: "bg-violet-400" },
+          ].map(({ label, val, color }) => (
+            <div key={label} className="rounded-[1rem] border border-white/8 bg-white/4 px-3 py-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-slate-400">{label}</span>
+                <span className="text-[10px] font-bold text-white">{Math.round(val)}</span>
+              </div>
+              <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                <div className={`h-full rounded-full ${color} transition-all duration-700`} style={{ width: `${Math.min(val, 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const REACTIONS = ["👍", "❤️", "💡", "🤔"];
 
 export default function ChatPage() {
   const params = useParams<{ id: string }>();
@@ -56,180 +278,170 @@ export default function ChatPage() {
   const [rubric, setRubric] = useState<RubricResponse | null>(null);
   const [scoring, setScoring] = useState(false);
   const [rewritingMode, setRewritingMode] = useState<string | null>(null);
-  const [credits, setCredits] = useState(12);
+  const [credits, setCredits] = useState<{ remaining: number; total: number } | null>(null);
+  const creditsRemaining = credits?.remaining ?? 20;
+  const creditsTotal = credits?.total ?? 20;
+  const [reactions, setReactions] = useState<Record<number, string>>({});
+  const [showReactionFor, setShowReactionFor] = useState<number | null>(null);
+
+  /* ─── Coach state ─── */
+  const [coachMode, setCoachMode] = useState<CoachMode>("friendly");
+  const [showModePanel, setShowModePanel] = useState(false);
+  const [coachFeedback, setCoachFeedback] = useState<CoachFeedback | null>(null);
+  const [fetchingCoach, setFetchingCoach] = useState(false);
+  const [lastCoachMessageId, setLastCoachMessageId] = useState<number | null>(null);
+  const [coachEnabled, setCoachEnabled] = useState(true);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const scrollToBottom = () => {
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, [conversation?.messages, sending]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [conversation?.messages]);
-
-  useEffect(() => {
-    const savedToken = window.localStorage.getItem("token") ?? "";
-    setToken(savedToken);
+    const t = window.localStorage.getItem("token") ?? "";
+    setToken(t);
   }, []);
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
+    if (!token) return;
+    fetch(`${API_BASE_URL}/credits`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (d?.data) setCredits(d.data); })
+      .catch(() => {});
+  }, [token]);
 
-    async function loadConversation() {
+  async function refreshCredits() {
+    if (!token) return;
+    try {
+      const r = await fetch(`${API_BASE_URL}/credits`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      if (d?.data) setCredits(d.data);
+    } catch { /* silent */ }
+  }
+
+  useEffect(() => {
+    if (!token) return;
+    async function load() {
       setLoading(true);
       setError("");
-
-      const response = await fetch(`${API_BASE_URL}/conversations/${params.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await fetch(`${API_BASE_URL}/conversations/${params.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       try {
-        const data = await readApiData<Conversation>(response);
+        const data = await readApiData<Conversation>(res);
         setConversation(data);
-        setLoading(false);
       } catch {
-        setError("Failed to load conversation history.");
+        setError("Could not load your conversation. Try again.");
+      } finally {
         setLoading(false);
       }
     }
-
-    void loadConversation();
+    void load();
   }, [params.id, token]);
+
+  /* ─── Fetch coaching feedback for a user message ─── */
+  async function fetchCoachFeedback(userText: string, msgId: number) {
+    if (!coachEnabled || !token || fetchingCoach) return;
+    if (lastCoachMessageId === msgId) return;
+    setFetchingCoach(true);
+    setCoachFeedback(null);
+    setLastCoachMessageId(msgId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/coaching/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: userText }),
+      });
+      const data = await readApiData<{ data: CoachFeedback }>(res);
+      // Handle both wrapped and unwrapped responses
+      const fb = (data as unknown as { data: CoachFeedback }).data ?? (data as unknown as CoachFeedback);
+      setCoachFeedback(fb);
+    } catch {
+      // Silent fail — coaching is non-critical
+    } finally {
+      setFetchingCoach(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!message.trim() || !token || !conversation) {
-      return;
-    }
+    if (!message.trim() || !token || !conversation) return;
 
+    const sentText = message;
     setSending(true);
     setError("");
+    setCoachFeedback(null);
+    setRubric(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/messages/send`, {
+      const res = await fetch(`${API_BASE_URL}/messages/send`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          conversation_id: conversation.id,
-          content: message,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ conversation_id: conversation.id, content: sentText }),
       });
-
-      const data = await readApiData<{
-        user_message: Message;
-        ai_message: Message;
-      }>(response);
-
-      setConversation({
-        ...conversation,
-        messages: [...conversation.messages, data.user_message, data.ai_message],
-      });
+      const data = await readApiData<{ user_message: Message; ai_message: Message }>(res);
+      setConversation({ ...conversation, messages: [...conversation.messages, data.user_message, data.ai_message] });
       setMessage("");
-      setRubric(null);
       void playAiReply(data.ai_message);
-    } catch (sendError) {
-      setError(
-        sendError instanceof Error ? sendError.message : "Message send failed.",
-      );
+      setTimeout(() => inputRef.current?.focus(), 100);
+      // Trigger coaching feedback after sending
+      void fetchCoachFeedback(sentText, data.user_message.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
     } finally {
       setSending(false);
     }
   }
 
   async function startRecording() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Microphone recording is not supported in this browser.");
-      return;
-    }
-
+    if (!navigator.mediaDevices?.getUserMedia) { setError("Microphone not supported."); return; }
     setError("");
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
-
       audioChunksRef.current = [];
       mediaStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
-
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      });
-
-      recorder.addEventListener("stop", () => {
-        void transcribeRecording();
-      });
-
+      recorder.addEventListener("dataavailable", (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); });
+      recorder.addEventListener("stop", () => void transcribeRecording());
       recorder.start();
       setRecording(true);
-    } catch {
-      setError("Unable to access microphone.");
-    }
+    } catch { setError("Could not access microphone."); }
   }
 
   function stopRecording() {
     mediaRecorderRef.current?.stop();
-    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     mediaStreamRef.current = null;
     setRecording(false);
   }
 
   async function transcribeRecording() {
-    if (audioChunksRef.current.length === 0) {
-      return;
-    }
-
+    if (audioChunksRef.current.length === 0) return;
     setTranscribing(true);
     setError("");
-
     try {
-      const audioBlob = new Blob(audioChunksRef.current, {
-        type: "audio/webm",
-      });
-      const formData = new FormData();
-      formData.append("file", audioBlob, "recording.webm");
-      const transcriptionLanguage =
-        conversation?.language === "Spanish"
-          ? "es"
-          : conversation?.language === "French"
-            ? "fr"
-            : conversation?.language === "German"
-              ? "de"
-              : "en";
-      formData.append("language", transcriptionLanguage);
-      formData.append("prompt", "English conversation practice");
-
-      const response = await fetch(`${API_BASE_URL}/speech/transcribe`, {
+      const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      const form = new FormData();
+      form.append("file", blob, "recording.webm");
+      const lang = conversation?.language === "Spanish" ? "es" : conversation?.language === "French" ? "fr" : conversation?.language === "German" ? "de" : "en";
+      form.append("language", lang);
+      form.append("prompt", "English conversation practice");
+      const res = await fetch(`${API_BASE_URL}/speech/transcribe`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: formData,
+        body: form,
       });
-
-      const data = await readApiData<{ text: string }>(response);
-      setMessage((currentMessage) =>
-        currentMessage
-          ? `${currentMessage.trim()} ${data.text}`.trim()
-          : data.text,
-      );
-    } catch (transcriptionError) {
-      setError(
-        transcriptionError instanceof Error
-          ? transcriptionError.message
-          : "Voice transcription failed.",
-      );
+      const data = await readApiData<{ text: string }>(res);
+      setMessage((m) => m ? `${m.trim()} ${data.text}`.trim() : data.text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Voice transcription failed.");
     } finally {
       audioChunksRef.current = [];
       setTranscribing(false);
@@ -237,60 +449,40 @@ export default function ChatPage() {
   }
 
   async function rewriteDraft(mode: string) {
-    if (!token || !message.trim()) {
-      return;
-    }
-
+    if (!token || !message.trim() || !conversation || !!error) return;
     setError("");
     setRewritingMode(mode);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/rewrite`, {
+      const res = await fetch(`${API_BASE_URL}/feedback/rewrite`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text: message, mode }),
       });
-      const data = await readApiData<{ mode: string; rewritten_text: string }>(
-        response,
-      );
+      const data = await readApiData<{ mode: string; rewritten_text: string }>(res);
       setMessage(data.rewritten_text);
-    } catch (rewriteError) {
-      setError(
-        rewriteError instanceof Error ? rewriteError.message : "Rewrite failed.",
-      );
+      void refreshCredits();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Rewrite failed.");
     } finally {
       setRewritingMode(null);
     }
   }
 
   async function scoreDraft() {
-    if (!token || !conversation || !message.trim()) {
-      return;
-    }
-
+    if (!token || !conversation || !message.trim() || !!error) return;
     setError("");
     setScoring(true);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/rubric`, {
+      const res = await fetch(`${API_BASE_URL}/feedback/rubric`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text: message, conversation_id: conversation.id }),
       });
-      const data = await readApiData<RubricResponse>(response);
+      const data = await readApiData<RubricResponse>(res);
       setRubric(data);
-    } catch (scoreError) {
-      setError(
-        scoreError instanceof Error
-          ? scoreError.message
-          : "Rubric scoring failed.",
-      );
+      void refreshCredits();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not score your answer.");
     } finally {
       setScoring(false);
     }
@@ -299,365 +491,424 @@ export default function ChatPage() {
   async function playAiReply(aiMessage: Message) {
     setError("");
     setSpeakingMessageId(aiMessage.id);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/speech/synthesize`, {
+      const res = await fetch(`${API_BASE_URL}/speech/synthesize`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ text: aiMessage.content }),
       });
-
-      if (!response.ok) {
-        throw new Error("AI voice playback failed.");
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-      }
-
-      const audio = new Audio(audioUrl);
+      if (!res.ok) throw new Error("Playback failed.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (currentAudioRef.current) currentAudioRef.current.pause();
+      const audio = new Audio(url);
       currentAudioRef.current = audio;
-
       audio.addEventListener("ended", () => {
-        URL.revokeObjectURL(audioUrl);
-        if (currentAudioRef.current === audio) {
-          currentAudioRef.current = null;
-        }
-        setSpeakingMessageId((currentId) =>
-          currentId === aiMessage.id ? null : currentId,
-        );
+        URL.revokeObjectURL(url);
+        if (currentAudioRef.current === audio) currentAudioRef.current = null;
+        setSpeakingMessageId((id) => id === aiMessage.id ? null : id);
       });
-
       audio.addEventListener("error", () => {
-        URL.revokeObjectURL(audioUrl);
+        URL.revokeObjectURL(url);
         setSpeakingMessageId(null);
-        setError("AI voice playback failed.");
       });
-
       await audio.play();
-    } catch (speechError) {
+    } catch {
       setSpeakingMessageId(null);
-      setError(
-        speechError instanceof Error
-          ? speechError.message
-          : "AI voice playback failed.",
-      );
     }
   }
 
+  const canAct = !loading && !!conversation && !error && !!token;
+  const currentMode = COACH_MODES[coachMode];
+
   return (
-    <main className="app-shell grid-overlay relative overflow-hidden px-5 py-6 text-slate-100 md:px-8 md:py-8">
-      <section className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-7xl gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="glass-panel flex flex-col rounded-[2rem] p-6">
-          <p className="text-xs uppercase tracking-[0.34em] text-cyan-200/80">
-            Live workspace
-          </p>
-          <h1 className="display mt-4 text-4xl font-semibold text-white">
-            Conversation #{params.id}
-          </h1>
-          <p className="mt-4 text-sm leading-7 text-slate-300">
-            Run a realistic voice-enabled session with transcription, AI
-            playback, and message history stored automatically.
-          </p>
+    <>
+      <style>{`
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        @keyframes waveBar { from{transform:scaleY(0.4)} to{transform:scaleY(1)} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(105,226,255,0.4)} 70%{box-shadow:0 0 0 8px rgba(105,226,255,0)} 100%{box-shadow:0 0 0 0 rgba(105,226,255,0)} }
+      `}</style>
 
-          <div className="mt-8 space-y-3">
-            <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/40 p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                Language
-              </p>
-              <p className="mt-2 text-lg font-medium text-white">
-                {conversation?.language ?? "Loading"}
-              </p>
-            </div>
-            <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/40 p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                Status
-              </p>
-              <p className="mt-2 text-lg font-medium text-white">
-                {conversation?.status ?? "Pending"}
-              </p>
-            </div>
-            <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/40 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                  Credits
-                </p>
-                <span className="text-xs text-cyan-300 font-medium">🔥 {credits} / 20</span>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-white/5 overflow-hidden">
-                <div 
-                  className="h-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)] transition-all duration-500"
-                  style={{ width: `${(credits / 20) * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
+      <main className="app-shell grid-overlay flex h-screen flex-col overflow-hidden text-slate-100">
 
-          <div className="mt-auto flex flex-col gap-3 pt-8">
-            <BackButton fallbackHref="/portal" label="Back" />
-            <Link
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-100 transition hover:border-cyan-300/40 hover:bg-cyan-400/10"
-              href="/portal"
-            >
-              Change scenario
+        {/* ─── Topbar ─── */}
+        <header className="flex items-center justify-between border-b border-white/8 px-4 py-3 md:px-6 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/portal" className="flex-shrink-0 flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:border-cyan-300/30 hover:text-white transition">
+              ← Back
             </Link>
-            <Link
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-100 transition hover:border-cyan-300/40 hover:bg-cyan-400/10"
-              href="/dashboard"
-            >
-              Open dashboard
-            </Link>
-          </div>
-        </aside>
-
-        <section className="glass-panel flex min-h-[70vh] flex-col rounded-[2rem] p-4 md:p-5">
-          <div className="flex items-center justify-between gap-4 border-b border-white/10 px-2 pb-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">
-                AI interview stream
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">
-                Real-time conversation
-              </h2>
-            </div>
-            <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.22em] text-slate-300">
-              {recording
-                ? "Recording"
-                : transcribing
-                  ? "Transcribing"
-                  : sending
-                    ? "Responding"
-                    : "Ready"}
+            <div className="hidden sm:block min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">{conversation?.language ?? "…"} session</p>
+              <p className="text-sm font-medium text-white truncate">{loading ? "Loading…" : `Conversation #${params.id}`}</p>
             </div>
           </div>
 
-          <div className="scrollbar-subtle flex-1 space-y-4 overflow-y-auto px-2 py-6">
-            {!token ? (
-              <p className="rounded-[1.25rem] border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                No auth token found. Return to the home page and log in first.
-              </p>
-            ) : null}
-
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-                    <div className="h-20 w-[60%] animate-pulse rounded-[1.6rem] bg-white/5 border border-white/10" />
-                  </div>
-                ))}
-                <p className="text-center text-sm text-slate-500 animate-pulse">Loading conversation history...</p>
-              </div>
-            ) : null}
-
-            {conversation?.messages.map((entry) => (
-              <div
-                key={entry.id}
-                className={`max-w-[88%] rounded-[1.6rem] border px-4 py-4 text-sm leading-7 shadow-xl ${
-                  entry.sender_role === "user"
-                    ? "ml-auto border-cyan-200/30 bg-[linear-gradient(135deg,rgba(105,226,255,0.95),rgba(167,243,208,0.78))] text-slate-950"
-                    : "border-white/10 bg-[rgba(7,16,29,0.86)] text-slate-100"
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Coach mode button */}
+            <div className="relative">
+              <button
+                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  coachEnabled ? `${currentMode.borderColor} bg-white/5 ${currentMode.color}` : "border-white/10 bg-white/5 text-slate-500"
                 }`}
+                onClick={() => setShowModePanel((p) => !p)}
+                type="button"
               >
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-                      {entry.sender_role === "user" ? "You" : "AI coach"}
-                    </p>
-                    <p className="mt-1 text-[11px] opacity-55">
-                      {formatTimestamp(entry.created_at)}
-                    </p>
-                  </div>
-                  {entry.sender_role === "assistant" ? (
+                <span>{currentMode.icon}</span>
+                <span className="hidden sm:inline">{currentMode.label}</span>
+                <span className="text-slate-500">▾</span>
+              </button>
+
+              {/* Coach mode panel */}
+              {showModePanel && (
+                <div className="absolute right-0 top-full mt-2 z-20 w-72 rounded-[1.5rem] border border-white/10 bg-slate-950/95 backdrop-blur-xl p-3 shadow-2xl"
+                  style={{ animation: "slideUp 0.2s ease both" }}>
+                  <div className="flex items-center justify-between px-2 pb-2 mb-1 border-b border-white/8">
+                    <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400">Coach Personality</p>
                     <button
-                      className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] opacity-80 transition hover:border-cyan-300/50 hover:opacity-100"
-                      onClick={() => void playAiReply(entry)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                        coachEnabled ? "border-emerald-300/25 text-emerald-300" : "border-white/10 text-slate-500"
+                      }`}
+                      onClick={() => setCoachEnabled((p) => !p)}
                       type="button"
                     >
-                      {speakingMessageId === entry.id ? "Playing" : "Play voice"}
+                      {coachEnabled ? "On" : "Off"}
                     </button>
-                  ) : null}
+                  </div>
+                  {(Object.entries(COACH_MODES) as [CoachMode, typeof COACH_MODES[CoachMode]][]).map(([key, m]) => (
+                    <button
+                      key={key}
+                      className={`w-full flex items-center gap-3 rounded-[1.2rem] border px-3 py-3 text-left transition mb-1 ${
+                        coachMode === key ? `${m.borderColor} bg-white/8` : "border-transparent hover:bg-white/5"
+                      }`}
+                      onClick={() => { setCoachMode(key); setShowModePanel(false); }}
+                      type="button"
+                    >
+                      <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${m.avatarGrad} text-slate-950`}>{m.icon}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{m.label}</p>
+                        <p className="text-[11px] text-slate-500">{m.desc}</p>
+                      </div>
+                      {coachMode === key && <span className="ml-auto text-cyan-400 text-sm">✓</span>}
+                    </button>
+                  ))}
                 </div>
-                <p className="whitespace-pre-wrap">{entry.content}</p>
+              )}
+            </div>
+
+            {/* Credits pill */}
+            <div className="flex flex-col items-end gap-0.5">
+              <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                <span className="text-xs">🔥</span>
+                <div className="h-1.5 w-12 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${creditsRemaining === 0 ? "bg-rose-400" : "bg-[linear-gradient(90deg,#69e2ff,#a7f3d0)]"}`}
+                    style={{ width: `${(creditsRemaining / creditsTotal) * 100}%` }}
+                  />
+                </div>
+                <span className={`text-xs font-semibold ${creditsRemaining === 0 ? "text-rose-300" : "text-slate-300"}`}>
+                  {creditsRemaining}/{creditsTotal}
+                </span>
               </div>
-            ))}
+              <span className="text-[9px] text-slate-600 pr-1">voice &amp; coaching</span>
+            </div>
+
+            {/* Status */}
+            <div className={`hidden sm:block rounded-full border px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] ${
+              recording ? "border-rose-300/30 bg-rose-500/10 text-rose-200" :
+              transcribing ? "border-amber-300/30 bg-amber-500/10 text-amber-200" :
+              sending ? "border-cyan-300/30 bg-cyan-500/10 text-cyan-200" :
+              fetchingCoach ? "border-violet-300/30 bg-violet-500/10 text-violet-200" :
+              "border-white/10 bg-white/5 text-slate-500"
+            }`}>
+              {recording ? "🔴 Rec" : transcribing ? "⏳ Transcribing" : sending ? "💭 Thinking" : fetchingCoach ? "🧠 Coaching" : "● Ready"}
+            </div>
+
+            <Link href="/dashboard" className="hidden md:block rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:border-cyan-300/30 hover:text-white transition">
+              Progress
+            </Link>
+          </div>
+        </header>
+
+        {/* ─── Overlay close for mode panel ─── */}
+        {showModePanel && (
+          <div className="fixed inset-0 z-10" onClick={() => setShowModePanel(false)} />
+        )}
+
+        {/* ─── Messages Area ─── */}
+        <div className="flex-1 overflow-y-auto px-4 py-5 md:px-8">
+          <div className="mx-auto max-w-2xl space-y-5">
+
+            {!token && (
+              <div className="rounded-[1.5rem] border border-amber-400/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-100">
+                Please <Link className="underline" href="/login">log in</Link> to continue.
+              </div>
+            )}
+
+            {loading && (
+              <div className="space-y-5 animate-pulse">
+                {[false, true, false].map((right, i) => (
+                  <div key={i} className={`flex items-end gap-3 ${right ? "flex-row-reverse" : ""}`}>
+                    {!right && <div className="h-8 w-8 flex-shrink-0 rounded-full bg-white/10" />}
+                    <div className={`h-20 rounded-[1.6rem] bg-white/5 border border-white/8 ${right ? "w-[55%]" : "w-[65%]"}`} />
+                  </div>
+                ))}
+                <p className="text-center text-xs text-slate-600 animate-pulse">Loading conversation…</p>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && conversation?.messages.length === 0 && (
+              <div className="rounded-[1.75rem] border border-dashed border-white/10 bg-white/3 px-6 py-10 text-center"
+                style={{ animation: "slideUp 0.4s ease both" }}>
+                <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${currentMode.avatarGrad} text-2xl shadow-xl mb-4`}>
+                  {currentMode.icon}
+                </div>
+                <p className="text-sm font-semibold text-white">
+                  {coachMode === "strict" ? "Ready to challenge you." : coachMode === "casual" ? "Hey, let's chat!" : "Hi! I'm your AI coach."}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {coachMode === "strict" ? "Show me what you've got. Don't hold back." : coachMode === "casual" ? "Just talk, no pressure 😊" : "After each message I'll give you live feedback to help you improve."}
+                </p>
+              </div>
+            )}
+
+            {/* Messages */}
+            {conversation?.messages.map((entry) => {
+              const isUser = entry.sender_role === "user";
+              const isSpeaking = speakingMessageId === entry.id;
+              const hasReaction = reactions[entry.id];
+              return (
+                <div
+                  key={entry.id}
+                  className={`flex items-end gap-3 ${isUser ? "flex-row-reverse" : ""}`}
+                  style={{ animation: "slideUp 0.3s ease both" }}
+                  onMouseLeave={() => setShowReactionFor(null)}
+                >
+                  {/* Avatar */}
+                  {!isUser && (
+                    <div className={`flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-lg transition ${
+                      isSpeaking ? "scale-110" : ""
+                    } ${currentMode.avatarGrad} text-slate-950`}>
+                      {currentMode.icon}
+                    </div>
+                  )}
+
+                  <div className="group flex flex-col gap-1.5 max-w-[80%]">
+                    <p className={`text-[10px] uppercase tracking-[0.2em] text-slate-600 ${isUser ? "text-right" : ""}`}>
+                      {isUser ? "You" : currentMode.label} · {formatTimestamp(entry.created_at)}
+                    </p>
+
+                    <div className={`relative rounded-[1.6rem] px-5 py-4 text-sm leading-7 shadow-lg ${
+                      isUser
+                        ? "rounded-br-sm bg-[linear-gradient(135deg,rgba(105,226,255,0.92),rgba(167,243,208,0.75))] text-slate-950"
+                        : "rounded-bl-sm border border-white/10 bg-[rgba(7,16,29,0.88)] text-slate-100"
+                    }`}>
+                      <p className="whitespace-pre-wrap">{entry.content}</p>
+                      {hasReaction && (
+                        <span className="absolute -bottom-2 -right-1 text-base">{hasReaction}</span>
+                      )}
+                    </div>
+
+                    <div className={`flex items-center gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
+                      {!isUser && (
+                        <button
+                          className={`rounded-full border px-3 py-1 text-[10px] font-medium transition ${
+                            isSpeaking ? "border-cyan-300/40 bg-cyan-500/15 text-cyan-200" : "border-white/10 bg-white/5 text-slate-400 hover:border-cyan-300/25 hover:text-white"
+                          }`}
+                          onClick={() => void playAiReply(entry)}
+                          type="button"
+                        >
+                          {isSpeaking ? "🔊 Playing" : "🔊 Listen"}
+                        </button>
+                      )}
+
+                      {/* Reaction picker */}
+                      <div className="relative">
+                        <button
+                          className="rounded-full border border-white/8 bg-white/4 px-2 py-1 text-[11px] text-slate-500 opacity-0 group-hover:opacity-100 hover:text-white transition"
+                          onClick={() => setShowReactionFor(showReactionFor === entry.id ? null : entry.id)}
+                          type="button"
+                        >
+                          {hasReaction || "＋"}
+                        </button>
+                        {showReactionFor === entry.id && (
+                          <div className="absolute bottom-8 left-0 z-10 flex gap-1.5 rounded-[1.2rem] border border-white/10 bg-slate-900 p-2 shadow-xl">
+                            {REACTIONS.map((r) => (
+                              <button key={r} className="rounded-lg p-1.5 text-lg hover:bg-white/10 transition"
+                                onClick={() => { setReactions((p) => ({ ...p, [entry.id]: r })); setShowReactionFor(null); }}
+                                type="button">{r}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Typing indicator */}
+            {sending && <TypingIndicator mode={coachMode} />}
+
+            {/* Coach analyzing indicator */}
+            {fetchingCoach && !coachFeedback && (
+              <div className="flex items-center gap-2.5 px-2"
+                style={{ animation: "slideUp 0.3s ease both" }}>
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${currentMode.avatarGrad} text-xs`}>{currentMode.icon}</span>
+                <span className="text-xs text-slate-500 animate-pulse">Analyzing your response…</span>
+              </div>
+            )}
+
+            {/* ─── Live Coach Feedback Card ─── */}
+            {coachFeedback && (
+              <CoachFeedbackCard
+                feedback={coachFeedback}
+                mode={coachMode}
+                onDismiss={() => setCoachFeedback(null)}
+                onApplyBetter={(text) => {
+                  setMessage(text);
+                  setCoachFeedback(null);
+                  setTimeout(() => inputRef.current?.focus(), 50);
+                }}
+              />
+            )}
 
             <div ref={messagesEndRef} />
 
-            {conversation && conversation.messages.length === 0 ? (
-              <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-slate-950/25 px-5 py-6 text-sm text-slate-400">
-                No messages yet. Send the first one to start the conversation.
+            {creditsRemaining === 0 && (
+              <div className="rounded-[1.5rem] border border-amber-400/20 bg-amber-500/8 px-5 py-4 text-center">
+                <p className="text-sm font-medium text-amber-200">Voice & advanced coaching credits used up</p>
+                <p className="mt-1 text-xs text-slate-500">Basic chat is still unlimited — keep practicing!</p>
               </div>
-            ) : null}
+            )}
           </div>
+        </div>
 
-          {error ? (
-            <p className="mb-4 rounded-[1.25rem] border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-              {error}
-            </p>
-          ) : null}
+        {/* ─── Error Bar ─── */}
+        {error && (
+          <div className="border-t border-rose-400/10 bg-rose-500/8 px-4 py-3 text-sm text-rose-200 flex items-center gap-2">
+            <span>❌ {error}</span>
+            <button className="ml-auto text-xs text-slate-400 hover:text-white" onClick={() => setError("")} type="button">Dismiss</button>
+          </div>
+        )}
 
-          <form
-            className="rounded-[1.75rem] border border-white/10 bg-slate-950/35 px-3 py-3"
-            onSubmit={handleSubmit}
-          >
-            <div className="flex flex-col gap-3 md:flex-row">
+        {/* ─── Rubric Panel ─── */}
+        {rubric && (
+          <div className="border-t border-white/8 bg-slate-950/50 px-4 py-4 md:px-6 backdrop-blur-sm">
+            <div className="mx-auto max-w-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs uppercase tracking-[0.25em] text-cyan-300 font-medium">📊 Answer quality</p>
+                <button className="text-xs text-slate-500 hover:text-white transition" onClick={() => setRubric(null)} type="button">Close</button>
+              </div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-4xl font-bold text-white">{rubric.overall_score.toFixed(0)}</span>
+                <div>
+                  <p className="text-sm text-slate-300">Overall score</p>
+                  <div className="mt-1 h-2 w-32 overflow-hidden rounded-full bg-white/8">
+                    <div className="h-full rounded-full bg-[linear-gradient(90deg,#69e2ff,#a7f3d0)]" style={{ width: `${Math.min(rubric.overall_score, 100)}%` }} />
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 mb-3">
+                {Object.entries(rubric.scores).map(([key, val]) => (
+                  <div key={key} className="rounded-[1.1rem] border border-white/8 bg-white/4 px-4 py-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="capitalize text-slate-300">{key.replaceAll("_", " ")}</span>
+                      <span className="font-semibold text-white">{val.toFixed(0)}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/8">
+                      <div className="h-full rounded-full bg-[linear-gradient(90deg,#69e2ff,#a7f3d0)]" style={{ width: `${Math.max(4, Math.min(val, 100))}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {rubric.action_items.length > 0 && (
+                <div className="rounded-[1.25rem] border border-white/8 bg-white/4 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">Try this next</p>
+                  {rubric.action_items.map((item) => (
+                    <p key={item} className="text-xs text-slate-300 mb-1">• {item}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Input Area ─── */}
+        <div className="border-t border-white/8 bg-slate-950/30 px-4 py-3 md:px-6 backdrop-blur-sm">
+          <div className="mx-auto max-w-2xl space-y-3">
+
+            {/* Improve / quality buttons (shown only when text is typed) */}
+            {message.trim() && canAct && (
+              <div className="flex flex-wrap gap-2 items-center">
+                {[
+                  { mode: "make natural",         label: "Improve" },
+                  { mode: "make professional",    label: "Professional" },
+                  { mode: "make shorter",         label: "Shorten" },
+                  { mode: "make interview-ready", label: "Interview ready" },
+                ].map(({ mode, label }) => (
+                  <button
+                    key={mode}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:border-cyan-300/25 hover:text-white transition disabled:opacity-40"
+                    onClick={() => void rewriteDraft(mode)}
+                    disabled={!!rewritingMode || sending}
+                    type="button"
+                  >
+                    {rewritingMode === mode ? "…" : label}
+                  </button>
+                ))}
+                <span className="w-px h-5 self-center bg-white/10" />
+                <button
+                  className="rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/20 transition disabled:opacity-40"
+                  onClick={() => void scoreDraft()}
+                  disabled={scoring || sending || !canAct}
+                  type="button"
+                >
+                  {scoring ? "Scoring…" : "📊 Score"}
+                </button>
+              </div>
+            )}
+
+            {/* Message form */}
+            <form className="flex items-center gap-2" onSubmit={handleSubmit}>
               <button
-                className={`rounded-[1.25rem] border px-4 py-3 text-sm font-medium transition ${
-                  recording
-                    ? "border-rose-300/40 bg-rose-500/20 text-rose-100"
-                    : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-300/50 hover:text-white"
+                className={`flex-shrink-0 flex items-center gap-2 rounded-[1.2rem] border px-3 py-3 text-sm font-medium transition ${
+                  recording ? "border-rose-300/40 bg-rose-500/20 text-rose-100" : "border-white/10 bg-white/5 text-slate-300 hover:border-cyan-300/30 hover:text-white"
                 }`}
                 onClick={recording ? stopRecording : () => void startRecording()}
                 type="button"
               >
-                {recording ? "Stop" : transcribing ? "Transcribing..." : "Record"}
+                {recording ? <Waveform active /> : transcribing ? <span className="animate-pulse text-xs">⏳</span> : "🎙️"}
               </button>
+
               <input
-                className="min-w-0 flex-1 rounded-[1.25rem] border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40"
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Type or dictate your message..."
+                ref={inputRef}
+                className="flex-1 min-w-0 rounded-[1.2rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/30 transition"
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder={coachMode === "strict" ? "Respond clearly and concisely…" : coachMode === "casual" ? "Just say what you think…" : "Type your response…"}
                 value={message}
+                disabled={false}
               />
+
               <button
-                className="rounded-[1.25rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-5 py-3 font-medium text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={
-                  sending ||
-                  transcribing ||
-                  !message.trim() ||
-                  !conversation ||
-                  !token ||
-                  credits === 0
-                }
+                className="flex-shrink-0 rounded-[1.2rem] bg-[linear-gradient(135deg,#69e2ff_0%,#a7f3d0_100%)] px-5 py-3 text-sm font-bold text-slate-950 transition hover:scale-[1.03] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={sending || transcribing || !message.trim() || !canAct}
                 type="submit"
               >
-                {sending ? "Sending..." : credits === 0 ? "❌ No credits" : "Send"}
+                {sending ? <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-slate-950" /> : "Send"}
               </button>
-            </div>
+            </form>
 
-            {credits === 0 && (
-              <p className="mt-2 text-center text-xs text-rose-300">
-                ❌ No credits left. Come back tomorrow
+            {/* Coach mode hint */}
+            {coachEnabled && (
+              <p className="text-center text-[10px] text-slate-600">
+                {currentMode.icon} {currentMode.label} mode · Live feedback after each message
               </p>
             )}
-
-            <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
-              <button
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
-                type="button"
-                onClick={() => void rewriteDraft("make natural")}
-                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
-              >
-                {rewritingMode === "make natural" ? "Rewriting..." : "Make natural"}
-              </button>
-              <button
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
-                type="button"
-                onClick={() => void rewriteDraft("make professional")}
-                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
-              >
-                {rewritingMode === "make professional"
-                  ? "Rewriting..."
-                  : "Make professional"}
-              </button>
-              <button
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
-                type="button"
-                onClick={() => void rewriteDraft("make advanced")}
-                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
-              >
-                {rewritingMode === "make advanced" ? "Rewriting..." : "Make advanced"}
-              </button>
-              <button
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
-                type="button"
-                onClick={() => void rewriteDraft("make shorter")}
-                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
-              >
-                {rewritingMode === "make shorter" ? "Rewriting..." : "Make shorter"}
-              </button>
-              <button
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-50"
-                type="button"
-                onClick={() => void rewriteDraft("make interview-ready")}
-                disabled={sending || transcribing || !message.trim() || !token || !conversation || !!error}
-              >
-                {rewritingMode === "make interview-ready"
-                  ? "Rewriting..."
-                  : "Make interview-ready"}
-              </button>
-
-              <span className="mx-1 h-5 w-px bg-white/10" />
-
-              <button
-                className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-100 transition hover:border-cyan-300/50 disabled:opacity-50"
-                type="button"
-                onClick={() => void scoreDraft()}
-                disabled={sending || transcribing || scoring || !message.trim() || !token || !conversation || !!error}
-              >
-                {scoring ? "Scoring..." : "Score quality"}
-              </button>
-            </div>
-          </form>
-
-          {rubric ? (
-            <div className="mt-4 rounded-[1.75rem] border border-white/10 bg-slate-950/35 px-4 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-200/80">
-                    Answer quality rubric
-                  </p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    Overall score:{" "}
-                    <span className="font-semibold text-white">
-                      {rubric.overall_score.toFixed(1)}
-                    </span>
-                    {rubric.question ? (
-                      <span className="text-slate-400"> (prompt detected)</span>
-                    ) : null}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {Object.entries(rubric.scores).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="rounded-[1.25rem] border border-white/10 bg-slate-950/45 px-4 py-3"
-                  >
-                    <div className="flex items-center justify-between text-sm text-slate-200">
-                      <span className="capitalize">{key}</span>
-                      <span>{value.toFixed(1)}</span>
-                    </div>
-                    <div className="mt-2 h-2 rounded-full bg-white/8">
-                      <div
-                        className="h-2 rounded-full bg-[linear-gradient(90deg,#69e2ff_0%,#a7f3d0_100%)]"
-                        style={{ width: `${Math.max(6, Math.min(value, 100))}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-slate-950/45 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                  Next actions
-                </p>
-                <div className="mt-3 space-y-2 text-sm text-slate-200">
-                  {rubric.action_items.map((item) => (
-                    <p key={item}>{item}</p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </section>
-      </section>
-    </main>
+          </div>
+        </div>
+      </main>
+    </>
   );
 }

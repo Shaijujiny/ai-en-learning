@@ -14,6 +14,8 @@ from app.database.models.speaking_analysis import SpeakingAnalysis
 from app.database.models.vocabulary_review_item import VocabularyReviewItem
 from app.database.models.vocabulary_review_session import VocabularyReviewSession
 from app.database.models.user_credit import UserCredit
+from app.database.models.user_daily_progress import UserDailyProgress
+from app.database.models.user_xp import UserXP
 from app.database.models.vocabulary_word import VocabularyWord
 
 __all__ = [
@@ -27,8 +29,10 @@ __all__ = [
     "Scenario",
     "SkillMetric",
     "User",
+    "UserDailyProgress",
     "UserLevelHistory",
     "UserScore",
+    "UserXP",
     "SpeakingAnalysis",
     "VocabularyReviewItem",
     "UserCredit",

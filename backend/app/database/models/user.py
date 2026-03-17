@@ -61,3 +61,9 @@ class User(Base):
     credits: Mapped["UserCredit | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
+    xp: Mapped["UserXP | None"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    daily_progress: Mapped[list["UserDailyProgress"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )

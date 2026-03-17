@@ -24,6 +24,8 @@ from app.features.health.router import router as health_router
 from app.features.messages.routes import router as messages_router
 from app.features.scenarios.routes import router as scenarios_router
 from app.features.credits.router import router as credits_router
+from app.features.daily.router import router as daily_router
+from app.features.personalization.router import router as personalization_router
 from app.features.speech.router import router as speech_router
 from app.features.speaking.router import router as speaking_router
 from app.features.feedback.router import router as feedback_router
@@ -52,6 +54,8 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 app.include_router(admin_router)
 app.include_router(credits_router)
+app.include_router(daily_router)
+app.include_router(personalization_router)
 app.include_router(analytics_router)
 app.include_router(analysis_router)
 app.include_router(assessment_router)
