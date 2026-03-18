@@ -12,7 +12,7 @@ from app.database.models.user import User
 from app.database.session import SessionLocal
 from app.features.ai_chat.ai_service import ai_chat_service
 from app.features.messages.repository import message_repository
-from app.features.messages.schema import MessageSendRequest, MessageSendResponse
+from app.features.messages.schema import MessageRecordResponse, MessageSendRequest, MessageSendResponse
 
 
 class MessageService:
@@ -158,7 +158,8 @@ class MessageService:
                 db,
                 Message(conversation_id=conversation.id, sender_role="user", content=payload.content),
             )
-            db.flush()
+            db.commit()
+            db.refresh(user_message)
         except Exception:
             db.rollback()
             raise
@@ -213,8 +214,8 @@ class MessageService:
         ]
 
         # Capture plain values before session closes — SQLAlchemy objects become detached
-        user_message_id = user_message.id
         conversation_id = conversation.id
+        serialized_user_message = MessageRecordResponse.model_validate(user_message).model_dump(mode="json")
         scenario_difficulty = conversation.scenario.difficulty
         conv_language = conversation.language
         user_level = current_user.user_level
@@ -251,9 +252,12 @@ class MessageService:
                 )
                 save_db.commit()
                 save_db.refresh(ai_msg)
-                fresh_user_msg = save_db.query(Message).filter(Message.id == user_message_id).first()
                 done_payload = MessageSendResponse.model_validate(
-                    {"conversation_id": conversation_id, "user_message": fresh_user_msg, "ai_message": ai_msg}
+                    {
+                        "conversation_id": conversation_id,
+                        "user_message": serialized_user_message,
+                        "ai_message": ai_msg,
+                    }
                 ).model_dump(mode="json")
                 yield f"data: {json.dumps({'type': 'done', **done_payload})}\n\n"
             except Exception:
