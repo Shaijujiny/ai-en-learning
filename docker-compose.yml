@@ -19,7 +19,7 @@ services:
     env_file: .env
     environment:
       REDIS_URL: "redis://redis:6379"
-      FRONTEND_ORIGINS: "http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}"
+      FRONTEND_ORIGINS: "http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT},http://23.94.151.242:${FRONTEND_PORT}"
     ports:
       - "${BACKEND_PORT}:8000"
     depends_on:
