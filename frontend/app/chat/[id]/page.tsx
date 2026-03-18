@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { readApiData } from "@/lib/api";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 /* ─── Types ─── */
 type Message = {
@@ -47,12 +46,12 @@ type CoachFeedback = {
 type VoiceId = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
 
 const VOICE_OPTIONS: { id: VoiceId; label: string; gender: string; style: string; icon: string }[] = [
-  { id: "nova",    label: "Nova",    gender: "Female", style: "Warm & clear",     icon: "👩" },
-  { id: "shimmer", label: "Shimmer", gender: "Female", style: "Soft & gentle",    icon: "🌸" },
-  { id: "alloy",   label: "Alloy",   gender: "Neutral", style: "Balanced",        icon: "🤖" },
-  { id: "echo",    label: "Echo",    gender: "Male",   style: "Natural",          icon: "👨" },
-  { id: "fable",   label: "Fable",   gender: "Male",   style: "British accent",   icon: "🎩" },
-  { id: "onyx",    label: "Onyx",    gender: "Male",   style: "Deep & confident", icon: "🎙️" },
+  { id: "nova", label: "Nova", gender: "Female", style: "Warm & clear", icon: "👩" },
+  { id: "shimmer", label: "Shimmer", gender: "Female", style: "Soft & gentle", icon: "🌸" },
+  { id: "alloy", label: "Alloy", gender: "Neutral", style: "Balanced", icon: "🤖" },
+  { id: "echo", label: "Echo", gender: "Male", style: "Natural", icon: "👨" },
+  { id: "fable", label: "Fable", gender: "Male", style: "British accent", icon: "🎩" },
+  { id: "onyx", label: "Onyx", gender: "Male", style: "Deep & confident", icon: "🎙️" },
 ];
 
 /* ─── Coach personality modes ─── */
@@ -182,9 +181,8 @@ function CoachFeedbackCard({
         </div>
         <div className="flex items-center gap-2">
           {/* Score pill */}
-          <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${
-            overallGood ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-200" : "border-amber-300/30 bg-amber-500/15 text-amber-200"
-          }`}>
+          <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${overallGood ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-200" : "border-amber-300/30 bg-amber-500/15 text-amber-200"
+            }`}>
             {Math.round((feedback.fluency_score + feedback.vocabulary_score) / 2)}/100
           </span>
           <button className="rounded-full p-1.5 text-slate-500 hover:text-white transition" onClick={onDismiss} type="button">✕</button>
@@ -313,6 +311,7 @@ export default function ChatPage() {
   const [fetchingCoach, setFetchingCoach] = useState(false);
   const [lastCoachMessageId, setLastCoachMessageId] = useState<number | null>(null);
   const [coachEnabled, setCoachEnabled] = useState(true);
+  const [showCreditsInfo, setShowCreditsInfo] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -335,7 +334,7 @@ export default function ChatPage() {
     fetch(`${API_BASE_URL}/credits`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => { if (d?.data) setCredits(d.data); })
-      .catch(() => {});
+      .catch(() => { });
   }, [token]);
 
   async function refreshCredits() {
@@ -551,8 +550,6 @@ export default function ChatPage() {
         @keyframes waveBar { from{transform:scaleY(0.4)} to{transform:scaleY(1)} }
         @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(105,226,255,0.4)} 70%{box-shadow:0 0 0 8px rgba(105,226,255,0)} 100%{box-shadow:0 0 0 0 rgba(105,226,255,0)} }
-        /* Hide the global floating toggle on this page — it lives in the topbar instead */
-        .theme-toggle-wrapper { display: none !important; }
       `}</style>
 
       <main className="app-shell grid-overlay flex h-screen flex-col overflow-hidden text-slate-100">
@@ -573,9 +570,8 @@ export default function ChatPage() {
             {/* Coach mode button */}
             <div className="relative">
               <button
-                className={`flex items-center gap-1.5 sm:gap-2 rounded-full border px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold tracking-wide transition shadow-lg ${
-                  coachEnabled ? `${currentMode.borderColor} bg-slate-950/50 backdrop-blur-md ${currentMode.color}` : "border-white/10 bg-slate-950/50 backdrop-blur-md text-slate-400"
-                }`}
+                className={`flex items-center gap-1.5 sm:gap-2 rounded-full border px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold tracking-wide transition shadow-lg ${coachEnabled ? `${currentMode.borderColor} bg-slate-950/50 backdrop-blur-md ${currentMode.color}` : "border-white/10 bg-slate-950/50 backdrop-blur-md text-slate-400"
+                  }`}
                 onClick={() => setShowModePanel((p) => !p)}
                 type="button"
               >
@@ -591,9 +587,8 @@ export default function ChatPage() {
                   <div className="flex items-center justify-between px-2 pb-2 mb-1 border-b border-white/8">
                     <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400">Coach Personality</p>
                     <button
-                      className={`text-[11px] px-2 py-1 rounded-full border transition ${
-                        coachEnabled ? "border-emerald-300/25 text-emerald-300" : "border-white/10 text-slate-500"
-                      }`}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${coachEnabled ? "border-emerald-300/25 text-emerald-300" : "border-white/10 text-slate-500"
+                        }`}
                       onClick={() => setCoachEnabled((p) => !p)}
                       type="button"
                     >
@@ -603,9 +598,8 @@ export default function ChatPage() {
                   {(Object.entries(COACH_MODES) as [CoachMode, typeof COACH_MODES[CoachMode]][]).map(([key, m]) => (
                     <button
                       key={key}
-                      className={`w-full flex items-center gap-3 rounded-[1.2rem] border px-3 py-3 text-left transition mb-1 ${
-                        coachMode === key ? `${m.borderColor} bg-white/8` : "border-transparent hover:bg-white/5"
-                      }`}
+                      className={`w-full flex items-center gap-3 rounded-[1.2rem] border px-3 py-3 text-left transition mb-1 ${coachMode === key ? `${m.borderColor} bg-white/8` : "border-transparent hover:bg-white/5"
+                        }`}
                       onClick={() => { setCoachMode(key); setShowModePanel(false); }}
                       type="button"
                     >
@@ -641,9 +635,8 @@ export default function ChatPage() {
                   {VOICE_OPTIONS.map((v) => (
                     <button
                       key={v.id}
-                      className={`w-full flex items-center gap-3 rounded-[1.2rem] border px-3 py-2.5 text-left transition mb-1 ${
-                        voiceId === v.id ? "border-cyan-300/25 bg-cyan-500/10" : "border-transparent hover:bg-white/5"
-                      }`}
+                      className={`w-full flex items-center gap-3 rounded-[1.2rem] border px-3 py-2.5 text-left transition mb-1 ${voiceId === v.id ? "border-cyan-300/25 bg-cyan-500/10" : "border-transparent hover:bg-white/5"
+                        }`}
                       onClick={() => { setVoiceId(v.id); setShowVoicePanel(false); }}
                       type="button"
                     >
@@ -661,11 +654,8 @@ export default function ChatPage() {
               )}
             </div>
 
-            {/* Credits pill */}
-            <div
-              className="hidden sm:flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/50 backdrop-blur-md px-3 sm:px-4 py-2 shadow-lg"
-              title={`${creditsRemaining}/${creditsTotal} daily credits · Next deduction in ${msgsUntilNext} message${msgsUntilNext === 1 ? "" : "s"} · Resets tomorrow`}
-            >
+            {/* Credits pill + info button */}
+            <div className="hidden sm:flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/50 backdrop-blur-md px-3 sm:px-4 py-2 shadow-lg">
               <span className="text-xs sm:text-sm -mt-0.5">🔥</span>
               <div className="h-1.5 w-12 sm:w-16 overflow-hidden rounded-full bg-white/10">
                 <div
@@ -676,27 +666,119 @@ export default function ChatPage() {
               <span className={`text-[10px] sm:text-xs font-bold font-mono tracking-tight ${creditsRemaining === 0 ? "text-rose-300" : "text-slate-300"}`}>
                 {creditsRemaining}/{creditsTotal}
               </span>
+              {/* Info button — opens modal, never overlaps */}
+              <button
+                onClick={() => setShowCreditsInfo(true)}
+                className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/8 text-[9px] font-bold text-slate-400 hover:border-cyan-300/40 hover:bg-cyan-500/10 hover:text-cyan-300 transition"
+                type="button"
+                aria-label="How credits work"
+              >
+                i
+              </button>
             </div>
 
             {/* Status */}
-            <div className={`hidden md:flex items-center justify-center rounded-full border px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest shadow-lg ${
-              recording ? "border-rose-300/30 bg-rose-500/10 backdrop-blur-md text-rose-200" :
-              transcribing ? "border-amber-300/30 bg-amber-500/10 backdrop-blur-md text-amber-200" :
-              sending ? "border-cyan-300/30 bg-cyan-500/10 backdrop-blur-md text-cyan-200" :
-              fetchingCoach ? "border-violet-300/30 bg-violet-500/10 backdrop-blur-md text-violet-200" :
-              "border-white/10 bg-slate-950/50 backdrop-blur-md text-slate-500"
-            }`}>
+            <div className={`hidden md:flex items-center justify-center rounded-full border px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest shadow-lg ${recording ? "border-rose-300/30 bg-rose-500/10 backdrop-blur-md text-rose-200" :
+                transcribing ? "border-amber-300/30 bg-amber-500/10 backdrop-blur-md text-amber-200" :
+                  sending ? "border-cyan-300/30 bg-cyan-500/10 backdrop-blur-md text-cyan-200" :
+                    fetchingCoach ? "border-violet-300/30 bg-violet-500/10 backdrop-blur-md text-violet-200" :
+                      "border-white/10 bg-slate-950/50 backdrop-blur-md text-slate-500"
+              }`}>
               {recording ? "🔴 Rec" : transcribing ? "⏳ Transcribing" : sending ? "💭 Thinking" : fetchingCoach ? "🧠 Coaching" : "● Ready"}
             </div>
 
             <Link href="/dashboard" className="hidden lg:flex items-center justify-center rounded-full border border-white/10 bg-slate-950/50 backdrop-blur-md px-4 py-2 text-xs font-semibold text-slate-300 shadow-lg hover:border-cyan-300/30 hover:bg-white/10 hover:text-white transition">
               Progress
             </Link>
-
-            {/* Theme toggle — embedded here, global floating one is hidden on this page */}
-            <ThemeToggle />
           </div>
         </header>
+
+        {/* ─── Credits info modal ─── */}
+        {showCreditsInfo && (
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            onClick={() => setShowCreditsInfo(false)}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" />
+
+            {/* Card */}
+            <div
+              className="relative z-10 w-full max-w-sm rounded-[1.75rem] border border-white/10 bg-slate-900/95 backdrop-blur-xl p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              style={{ animation: "slideUp 0.2s ease both" }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔥</span>
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-400">How Credits Work</p>
+                </div>
+                <button
+                  onClick={() => setShowCreditsInfo(false)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:text-white transition text-sm"
+                  type="button"
+                >✕</button>
+              </div>
+
+              {/* Rules */}
+              <div className="space-y-4 mb-5">
+                <div className="flex items-start gap-3 rounded-[1rem] border border-white/6 bg-white/4 px-4 py-3">
+                  <span className="text-xl mt-0.5">💬</span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Every 5 messages = 1 credit</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Send 5 messages → 1 credit is deducted automatically</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-[1rem] border border-white/6 bg-white/4 px-4 py-3">
+                  <span className="text-xl mt-0.5">🔥</span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">20 credits per day</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">= up to 100 messages total per day</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-[1rem] border border-white/6 bg-white/4 px-4 py-3">
+                  <span className="text-xl mt-0.5">🌙</span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Resets every midnight</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Fresh 20 credits every new day — automatically</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-[1rem] border border-white/6 bg-white/4 px-4 py-3">
+                  <span className="text-xl mt-0.5">🚫</span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">0 credits = chat blocked</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Come back tomorrow — credits reset at midnight</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live status footer */}
+              <div className="rounded-[1rem] border border-cyan-300/20 bg-cyan-500/8 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-slate-400">Current balance</p>
+                    <p className={`text-lg font-bold font-mono ${creditsRemaining === 0 ? "text-rose-300" : "text-cyan-300"}`}>
+                      {creditsRemaining} <span className="text-sm font-normal text-slate-500">/ {creditsTotal}</span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] text-slate-400">Next deduction in</p>
+                    <p className="text-lg font-bold font-mono text-white">
+                      {msgsUntilNext} <span className="text-sm font-normal text-slate-500">msg{msgsUntilNext === 1 ? "" : "s"}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10 mt-3">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${creditsRemaining === 0 ? "bg-rose-400" : "bg-[linear-gradient(90deg,#69e2ff,#a7f3d0)]"}`}
+                    style={{ width: `${(creditsRemaining / creditsTotal) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ─── Overlay close for mode panel ─── */}
         {(showModePanel || showVoicePanel) && (
@@ -755,9 +837,8 @@ export default function ChatPage() {
                 >
                   {/* Avatar */}
                   {!isUser && (
-                    <div className={`flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-lg transition ${
-                      isSpeaking ? "scale-110" : ""
-                    } ${currentMode.avatarGrad} text-slate-950`}>
+                    <div className={`flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-lg transition ${isSpeaking ? "scale-110" : ""
+                      } ${currentMode.avatarGrad} text-slate-950`}>
                       {currentMode.icon}
                     </div>
                   )}
@@ -767,11 +848,10 @@ export default function ChatPage() {
                       {isUser ? "You" : currentMode.label} · {formatTimestamp(entry.created_at)}
                     </p>
 
-                    <div className={`relative rounded-[1.6rem] px-5 py-4 text-sm leading-7 shadow-lg ${
-                      isUser
+                    <div className={`relative rounded-[1.6rem] px-5 py-4 text-sm leading-7 shadow-lg ${isUser
                         ? "rounded-br-sm bg-[linear-gradient(135deg,rgba(105,226,255,0.92),rgba(167,243,208,0.75))] text-slate-950"
                         : "rounded-bl-sm border border-white/10 bg-[rgba(7,16,29,0.88)] text-slate-100"
-                    }`}>
+                      }`}>
                       <p className="whitespace-pre-wrap">{entry.content}</p>
                       {hasReaction && (
                         <span className="absolute -bottom-2 -right-1 text-base">{hasReaction}</span>
@@ -781,9 +861,8 @@ export default function ChatPage() {
                     <div className={`flex items-center gap-2 mt-0.5 ${isUser ? "flex-row-reverse" : ""}`}>
                       {!isUser && (
                         <button
-                          className={`rounded-full border px-3 py-1 text-[10px] font-medium transition ${
-                            isSpeaking ? "border-cyan-300/40 bg-cyan-500/15 text-cyan-200" : "border-white/10 bg-white/5 text-slate-400 hover:border-cyan-300/25 hover:text-white"
-                          }`}
+                          className={`rounded-full border px-3 py-1 text-[10px] font-medium transition ${isSpeaking ? "border-cyan-300/40 bg-cyan-500/15 text-cyan-200" : "border-white/10 bg-white/5 text-slate-400 hover:border-cyan-300/25 hover:text-white"
+                            }`}
                           onClick={() => void playAiReply(entry)}
                           type="button"
                         >
@@ -941,9 +1020,9 @@ export default function ChatPage() {
             {message.trim() && canAct && (
               <div className="flex flex-wrap gap-2 items-center">
                 {[
-                  { mode: "make natural",         label: "Improve" },
-                  { mode: "make professional",    label: "Professional" },
-                  { mode: "make shorter",         label: "Shorten" },
+                  { mode: "make natural", label: "Improve" },
+                  { mode: "make professional", label: "Professional" },
+                  { mode: "make shorter", label: "Shorten" },
                   { mode: "make interview-ready", label: "Interview ready" },
                 ].map(({ mode, label }) => (
                   <button
@@ -971,9 +1050,8 @@ export default function ChatPage() {
             {/* Message form */}
             <form className="flex items-center gap-2" onSubmit={handleSubmit}>
               <button
-                className={`flex-shrink-0 flex items-center gap-2 rounded-[1.2rem] border px-3 py-3 text-sm font-medium transition ${
-                  recording ? "border-rose-300/40 bg-rose-500/20 text-rose-100" : "border-white/10 bg-white/5 text-slate-300 hover:border-cyan-300/30 hover:text-white"
-                }`}
+                className={`flex-shrink-0 flex items-center gap-2 rounded-[1.2rem] border px-3 py-3 text-sm font-medium transition ${recording ? "border-rose-300/40 bg-rose-500/20 text-rose-100" : "border-white/10 bg-white/5 text-slate-300 hover:border-cyan-300/30 hover:text-white"
+                  }`}
                 onClick={recording ? stopRecording : () => void startRecording()}
                 type="button"
               >

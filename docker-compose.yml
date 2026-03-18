@@ -1,25 +1,68 @@
 services:
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Backend (FastAPI) ─────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - ./backend/.env
+    env_file: .env
     environment:
-      FRONTEND_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      # Override DB/Redis URLs to use Docker service names instead of localhost
+      DATABASE_URL: "postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      REDIS_URL:    "redis://redis:6379"
+      FRONTEND_ORIGINS: "http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}"
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: >
       sh -c "alembic upgrade head &&
-      uvicorn app.main:app --host 0.0.0.0 --port 8000"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    restart: unless-stopped
 
+  # ── Frontend (Next.js) ────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "http://localhost:${BACKEND_PORT}"
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT}:3000"
     depends_on:
       - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
