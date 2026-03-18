@@ -212,6 +212,15 @@ class MessageService:
             for item in mistake_memory_service.top_mistakes(db=db, user_id=current_user.id, limit=4)
         ]
 
+        # Capture plain values before session closes — SQLAlchemy objects become detached
+        user_message_id = user_message.id
+        conversation_id = conversation.id
+        scenario_difficulty = conversation.scenario.difficulty
+        conv_language = conversation.language
+        user_level = current_user.user_level
+        skill_breakdown = current_user.skill_breakdown or {}
+        correction_mode = conversation.correction_mode
+
         def event_generator():
             full_content = ""
             try:
@@ -219,12 +228,12 @@ class MessageService:
                     system_prompt=effective_system_prompt,
                     scenario_title=effective_title,
                     scenario_description=effective_description,
-                    scenario_difficulty=conversation.scenario.difficulty,
-                    target_language=conversation.language,
+                    scenario_difficulty=scenario_difficulty,
+                    target_language=conv_language,
                     conversation_history=history,
-                    current_level=current_user.user_level,
-                    skill_breakdown=current_user.skill_breakdown or {},
-                    correction_mode=conversation.correction_mode,
+                    current_level=user_level,
+                    skill_breakdown=skill_breakdown,
+                    correction_mode=correction_mode,
                     mistake_memory=mistake_mem,
                 ):
                     full_content += token
@@ -238,13 +247,13 @@ class MessageService:
             try:
                 ai_msg = message_repository.create_message(
                     save_db,
-                    Message(conversation_id=conversation.id, sender_role="assistant", content=full_content),
+                    Message(conversation_id=conversation_id, sender_role="assistant", content=full_content),
                 )
                 save_db.commit()
                 save_db.refresh(ai_msg)
-                fresh_user_msg = save_db.query(Message).filter(Message.id == user_message.id).first()
+                fresh_user_msg = save_db.query(Message).filter(Message.id == user_message_id).first()
                 done_payload = MessageSendResponse.model_validate(
-                    {"conversation_id": conversation.id, "user_message": fresh_user_msg, "ai_message": ai_msg}
+                    {"conversation_id": conversation_id, "user_message": fresh_user_msg, "ai_message": ai_msg}
                 ).model_dump(mode="json")
                 yield f"data: {json.dumps({'type': 'done', **done_payload})}\n\n"
             except Exception:
