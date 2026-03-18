@@ -9,6 +9,7 @@ from app.core.credit_service import credit_service
 from app.core.mistake_memory_service import mistake_memory_service
 from app.database.models.message import Message
 from app.database.models.user import User
+from app.database.session import SessionLocal
 from app.features.ai_chat.ai_service import ai_chat_service
 from app.features.messages.repository import message_repository
 from app.features.messages.schema import MessageSendRequest, MessageSendResponse
@@ -229,25 +230,28 @@ class MessageService:
                     full_content += token
                     yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
             except Exception:
-                db.rollback()
                 yield f"data: {json.dumps({'type': 'error', 'message': 'AI error, please try again'})}\n\n"
                 return
 
+            # Use a fresh session — the request-scoped db is closed by now
+            save_db = SessionLocal()
             try:
                 ai_msg = message_repository.create_message(
-                    db,
+                    save_db,
                     Message(conversation_id=conversation.id, sender_role="assistant", content=full_content),
                 )
-                db.commit()
-                db.refresh(user_message)
-                db.refresh(ai_msg)
+                save_db.commit()
+                save_db.refresh(ai_msg)
+                fresh_user_msg = save_db.query(Message).filter(Message.id == user_message.id).first()
                 done_payload = MessageSendResponse.model_validate(
-                    {"conversation_id": conversation.id, "user_message": user_message, "ai_message": ai_msg}
+                    {"conversation_id": conversation.id, "user_message": fresh_user_msg, "ai_message": ai_msg}
                 ).model_dump(mode="json")
                 yield f"data: {json.dumps({'type': 'done', **done_payload})}\n\n"
             except Exception:
-                db.rollback()
+                save_db.rollback()
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to save response'})}\n\n"
+            finally:
+                save_db.close()
 
         return StreamingResponse(
             event_generator(),
