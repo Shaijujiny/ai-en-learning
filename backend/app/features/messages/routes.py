@@ -22,3 +22,12 @@ def send_message(
         message_service.send_message(db, payload=payload, current_user=current_user),
         status_code=status.HTTP_201_CREATED,
     )
+
+
+@router.post("/stream")
+def stream_message(
+    payload: MessageSendRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return message_service.stream_message(db, payload=payload, current_user=current_user)

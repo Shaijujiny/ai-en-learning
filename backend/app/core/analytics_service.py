@@ -183,19 +183,33 @@ class AnalyticsService:
                 }
             )
 
+        recent_convs = conversations[:12]
+        conv_ids = [c.id for c, _ in recent_convs]
+
+        # Batch query: message counts per conversation (1 query instead of 12)
+        counts_rows = (
+            db.query(Message.conversation_id, func.count(Message.id))
+            .filter(Message.conversation_id.in_(conv_ids))
+            .group_by(Message.conversation_id)
+            .all()
+        )
+        counts_map: dict[int, int] = {cid: cnt for cid, cnt in counts_rows}
+
+        # Batch query: latest message per conversation (1 query instead of 12)
+        latest_id_subq = (
+            db.query(func.max(Message.id))
+            .filter(Message.conversation_id.in_(conv_ids))
+            .group_by(Message.conversation_id)
+            .subquery()
+        )
+        latest_msgs = {
+            m.conversation_id: m
+            for m in db.query(Message).filter(Message.id.in_(latest_id_subq)).all()
+        }
+
         history_items = []
-        for conversation, scenario_title in conversations[:12]:
-            latest_message = (
-                db.query(Message)
-                .filter(Message.conversation_id == conversation.id)
-                .order_by(Message.id.desc())
-                .first()
-            )
-            message_count = (
-                db.query(Message)
-                .filter(Message.conversation_id == conversation.id)
-                .count()
-            )
+        for conversation, scenario_title in recent_convs:
+            latest = latest_msgs.get(conversation.id)
             history_items.append(
                 {
                     "conversation_id": conversation.id,
@@ -203,9 +217,9 @@ class AnalyticsService:
                     "status": conversation.status,
                     "scenario_id": conversation.scenario_id,
                     "language": conversation.language,
-                    "message_count": message_count,
+                    "message_count": counts_map.get(conversation.id, 0),
                     "started_at": conversation.started_at,
-                    "latest_message": latest_message.content if latest_message else None,
+                    "latest_message": latest.content if latest else None,
                 }
             )
 

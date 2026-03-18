@@ -1,7 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database.models.conversation import Conversation
 from app.database.models.message import Message
+from app.database.models.scenario import Scenario  # noqa: F401 — needed for selectinload
 
 
 class MessageRepository:
@@ -10,6 +11,7 @@ class MessageRepository:
     ) -> Conversation | None:
         return (
             db.query(Conversation)
+            .options(selectinload(Conversation.scenario))
             .filter(Conversation.id == conversation_id, Conversation.user_id == user_id)
             .first()
         )
@@ -20,13 +22,15 @@ class MessageRepository:
         db.refresh(message)
         return message
 
-    def list_history(self, db: Session, conversation_id: int) -> list[Message]:
-        return (
+    def list_history(self, db: Session, conversation_id: int, limit: int | None = None) -> list[Message]:
+        query = (
             db.query(Message)
             .filter(Message.conversation_id == conversation_id)
-            .order_by(Message.id.asc())
-            .all()
+            .order_by(Message.id.desc())
         )
+        if limit:
+            query = query.limit(limit)
+        return list(reversed(query.all()))
 
 
 message_repository = MessageRepository()

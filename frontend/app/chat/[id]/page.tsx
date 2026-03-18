@@ -337,15 +337,6 @@ export default function ChatPage() {
       .catch(() => { });
   }, [token]);
 
-  async function refreshCredits() {
-    if (!token) return;
-    try {
-      const r = await fetch(`${API_BASE_URL}/credits`, { headers: { Authorization: `Bearer ${token}` } });
-      const d = await r.json();
-      if (d?.data) setCredits(d.data);
-    } catch { /* silent */ }
-  }
-
   useEffect(() => {
     if (!token) return;
     async function load() {
@@ -395,26 +386,91 @@ export default function ChatPage() {
     if (!message.trim() || !token || !conversation) return;
 
     const sentText = message;
+    setMessage("");
     setSending(true);
     setError("");
     setCoachFeedback(null);
     setRubric(null);
 
+    // Optimistic: add user message + streaming placeholder immediately
+    const now = new Date().toISOString();
+    const tempUser: Message = { id: -1, conversation_id: conversation.id, sender_role: "user", content: sentText, created_at: now };
+    const tempAi: Message = { id: -2, conversation_id: conversation.id, sender_role: "assistant", content: "", created_at: now };
+    setConversation((prev) => prev ? { ...prev, messages: [...prev.messages, tempUser, tempAi] } : prev);
+
+    // Optimistic credits: decrement locally (every 5 msgs = 1 credit)
+    setCredits((prev) => {
+      if (!prev) return prev;
+      const newMsgsToday = prev.messages_today + 1;
+      const deduct = newMsgsToday % 5 === 0 ? 1 : 0;
+      return {
+        ...prev,
+        messages_today: newMsgsToday,
+        remaining: Math.max(0, prev.remaining - deduct),
+        messages_until_next_deduction: 5 - (newMsgsToday % 5),
+      };
+    });
+
     try {
-      const res = await fetch(`${API_BASE_URL}/messages/send`, {
+      const res = await fetch(`${API_BASE_URL}/messages/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ conversation_id: conversation.id, content: sentText, coach_mode: coachEnabled ? coachMode : null }),
       });
-      const data = await readApiData<{ user_message: Message; ai_message: Message }>(res);
-      setConversation({ ...conversation, messages: [...conversation.messages, data.user_message, data.ai_message] });
-      setMessage("");
-      void playAiReply(data.ai_message);
-      void refreshCredits();
+
+      if (!res.ok || !res.body) {
+        throw new Error(`Request failed: ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalUserMsg: Message | null = null;
+      let finalAiMsg: Message | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const evt = JSON.parse(line.slice(6)) as { type: string; content?: string; message?: string; user_message?: Message; ai_message?: Message };
+
+          if (evt.type === "token") {
+            setConversation((prev) => {
+              if (!prev) return prev;
+              const msgs = [...prev.messages];
+              const last = msgs[msgs.length - 1];
+              msgs[msgs.length - 1] = { ...last, content: last.content + (evt.content ?? "") };
+              return { ...prev, messages: msgs };
+            });
+          } else if (evt.type === "done" && evt.user_message && evt.ai_message) {
+            finalUserMsg = evt.user_message;
+            finalAiMsg = evt.ai_message;
+            // Replace temp messages with real ones
+            setConversation((prev) => {
+              if (!prev) return prev;
+              const msgs = prev.messages.slice(0, -2);
+              return { ...prev, messages: [...msgs, evt.user_message!, evt.ai_message!] };
+            });
+          } else if (evt.type === "error") {
+            throw new Error(evt.message ?? "Stream error");
+          }
+        }
+      }
+
+      if (finalAiMsg) void playAiReply(finalAiMsg);
+      if (finalUserMsg) void fetchCoachFeedback(sentText, finalUserMsg.id);
       setTimeout(() => inputRef.current?.focus(), 100);
-      // Trigger coaching feedback after sending
-      void fetchCoachFeedback(sentText, data.user_message.id);
     } catch (e) {
+      // Remove optimistic messages on error
+      setConversation((prev) => {
+        if (!prev) return prev;
+        return { ...prev, messages: prev.messages.filter((m) => m.id !== -1 && m.id !== -2) };
+      });
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
     } finally {
       setSending(false);
@@ -482,7 +538,6 @@ export default function ChatPage() {
       });
       const data = await readApiData<{ mode: string; rewritten_text: string }>(res);
       setMessage(data.rewritten_text);
-      void refreshCredits();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Rewrite failed.");
     } finally {
@@ -502,7 +557,6 @@ export default function ChatPage() {
       });
       const data = await readApiData<RubricResponse>(res);
       setRubric(data);
-      void refreshCredits();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not score your answer.");
     } finally {

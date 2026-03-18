@@ -1,7 +1,7 @@
 import hashlib
 import json
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 
 from openai import OpenAI
 
@@ -102,6 +102,47 @@ class AIChatService:
         )
         cache_service.set_string(cache_key, content, settings.redis_ai_cache_ttl_seconds)
         return content
+
+    def generate_reply_stream(
+        self,
+        *,
+        system_prompt: str,
+        scenario_title: str,
+        scenario_description: str,
+        scenario_difficulty: str,
+        target_language: ConversationLanguage | str,
+        conversation_history: Sequence[dict[str, str]],
+        current_level: str | None,
+        skill_breakdown: dict[str, float],
+        correction_mode: str,
+        mistake_memory: Sequence[dict[str, str | None]],
+    ) -> Iterator[str]:
+        prompt = build_system_prompt(
+            system_prompt=system_prompt,
+            scenario_title=scenario_title,
+            scenario_description=scenario_description,
+            scenario_difficulty=scenario_difficulty,
+            target_language=target_language,
+            conversation_history=conversation_history,
+            current_level=current_level,
+            skill_breakdown=skill_breakdown,
+            correction_mode=correction_mode,
+            mistake_memory=mistake_memory,
+        )
+        if self._client is None:
+            mock = f"[Mock AI: {scenario_title}] I received your message. Let's continue practicing."
+            for word in mock.split():
+                yield word + " "
+            return
+        stream = self._client.chat.completions.create(
+            model=settings.openai_model,
+            messages=[{"role": "system", "content": prompt}, *conversation_history],
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
 
 
 ai_chat_service = AIChatService()
