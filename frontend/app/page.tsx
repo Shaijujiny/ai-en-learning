@@ -87,7 +87,7 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-bold text-white mb-3 tracking-tight">AI Speaking Partner</h3>
             <p className="text-slate-400 leading-relaxed font-light text-[14px]">
-              Just want to talk? Use the Freeflow mode to chat naturally without constraints. It's like a language exchange partner that's available 24/7.
+              Just want to talk? Use the Freeflow mode to chat naturally without constraints. It&apos;s like a language exchange partner that&apos;s available 24/7.
             </p>
           </div>
 
