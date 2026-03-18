@@ -47,10 +47,21 @@ export default function RegisterPage() {
 
       const data = await readApiData<{
         access_token: string;
+        refresh_token?: string;
         next_route: string;
       }>(loginResponse);
+
       window.localStorage.setItem("token", data.access_token);
-      router.push(data.next_route || "/assessment");
+      if (data.refresh_token) {
+        window.localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      
+      // Set cookie so middleware can protect routes server-side without kicking us out
+      const maxAge = 60 * 60 * 24 * 7; // 7 days
+      document.cookie = `auth_token=${data.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+
+      // Directly bypass the assessment and take the user to the portal
+      router.push("/portal");
     } catch (registerError) {
       setError(
         registerError instanceof Error
