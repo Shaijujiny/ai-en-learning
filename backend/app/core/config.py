@@ -19,12 +19,24 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
+
+    # ── AI Provider switch ────────────────────────────────────────────────
+    # Set to "openai" or "anthropic". Defaults to "openai".
+    ai_provider: str = "openai"
+
+    # OpenAI — required when ai_provider=openai; also required for speech (STT/TTS) always
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     openai_whisper_model: str = "whisper-1"
     openai_tts_model: str = "gpt-4o-mini-tts"
     openai_tts_voice: str = "alloy"
     openai_tts_format: str = "mp3"
+
+    # Anthropic — required when ai_provider=anthropic
+    # Note: speech (STT/TTS) always falls back to OpenAI; OPENAI_API_KEY is still needed for audio
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-3-haiku-20240307"
+
     speech_max_upload_mb: int = 8
     speech_transcribe_per_minute: int = 20
     speech_synthesize_per_minute: int = 30

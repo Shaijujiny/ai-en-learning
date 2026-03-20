@@ -3,10 +3,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from openai import OpenAI
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from app.core.ai_client import AIClient
 from app.core.fluency_service import fluency_service
 from app.core.grammar_service import grammar_service
 from app.core.logging import ai_logger
@@ -150,11 +149,11 @@ class RubricResult:
 
 class FeedbackService:
     def __init__(self) -> None:
-        self._client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        self._ai = AIClient()
 
     @property
     def ai_available(self) -> bool:
-        return self._client is not None
+        return self._ai.available
 
     def resolve_message_text(
         self,
@@ -277,8 +276,15 @@ class FeedbackService:
         if not normalized:
             return {"mode": mode_key, "rewritten_text": "", "notes": ["No text to rewrite."]}
 
-        if self._client is None:
-            return self._rewrite_fallback(text=normalized, mode=mode_key)
+        if not self._ai.available:
+            return {
+                "mode": mode_key,
+                "rewritten_text": "",
+                "notes": [
+                    f"Rewrite is unavailable. AI_PROVIDER='{self._ai.provider}' "
+                    f"but the corresponding API key is not configured."
+                ],
+            }
 
         instruction = {
             "make natural": "Rewrite to sound natural and conversational in English.",
@@ -288,31 +294,15 @@ class FeedbackService:
             "make interview-ready": "Rewrite as an interview-ready answer with clear structure and confident tone.",
         }.get(mode_key, "Rewrite to improve the answer while keeping the meaning.")
 
-        response = self._client.responses.create(
-            model=settings.openai_model,
-            input=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an English coach. Return only the rewritten answer text. "
-                        "Do not add extra commentary. Do not add new facts."
-                    ),
-                },
-                {"role": "user", "content": f"{instruction}\n\nAnswer:\n{normalized}"},
-            ],
+        rewritten = self._ai.create_message(
+            system=(
+                "You are an English coach. Return only the rewritten answer text. "
+                "Do not add extra commentary. Do not add new facts."
+            ),
+            messages=[{"role": "user", "content": f"{instruction}\n\nAnswer:\n{normalized}"}],
         )
-        rewritten = response.output_text.strip()
-        ai_logger.info("answer_rewrite_generated provider=openai mode=%s", mode_key)
+        ai_logger.info("answer_rewrite_generated provider=%s mode=%s", self._ai.provider, mode_key)
         return {"mode": mode_key, "rewritten_text": rewritten, "notes": []}
-
-    def _rewrite_fallback(self, *, text: str, mode: str) -> dict:
-        if mode == "make shorter":
-            parts = re.split(r"(?<=[.!?])\s+", text)
-            shortened = " ".join(parts[:2]).strip() if parts else text
-            shortened = shortened if shortened else text[:240].strip()
-            return {"mode": mode, "rewritten_text": shortened, "notes": ["Fallback rewrite (no AI)."]}
-        return {"mode": mode, "rewritten_text": text, "notes": ["Rewrite requires OPENAI_API_KEY."]}
 
 
 feedback_service = FeedbackService()
-

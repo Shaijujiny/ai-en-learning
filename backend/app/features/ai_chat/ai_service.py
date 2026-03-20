@@ -3,8 +3,7 @@ import json
 import time
 from collections.abc import Iterator, Sequence
 
-from openai import OpenAI
-
+from app.core.ai_client import AIClient
 from app.core.cache import cache_service
 from app.core.config import settings
 from app.core.logging import ai_logger
@@ -14,7 +13,7 @@ from app.features.ai_chat.prompt_builder import build_system_prompt
 
 class AIChatService:
     def __init__(self) -> None:
-        self._client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        self._ai = AIClient()
 
     def generate_reply(
         self,
@@ -66,36 +65,26 @@ class AIChatService:
             )
             return cached_reply
 
-        if self._client is None:
-            latest_user_message = next(
-                (
-                    message["content"]
-                    for message in reversed(conversation_history)
-                    if message["role"] == "user"
-                ),
-                "",
-            )
+        if not self._ai.available:
             content = (
-                f"[Mock AI: {scenario_title}] I received your message: "
-                f"{latest_user_message}. Let's continue practicing."
+                f"AI is not available. AI_PROVIDER is set to '{self._ai.provider}' "
+                f"but the corresponding API key is not configured."
             )
-            ai_logger.info(
-                "ai_reply_generated provider=mock scenario=%s latency_ms=%.2f history_count=%s",
+            ai_logger.warning(
+                "ai_reply_skipped reason=no_api_key scenario=%s provider=%s",
                 scenario_title,
-                (time.perf_counter() - started_at) * 1000,
-                len(conversation_history),
+                self._ai.provider,
             )
             cache_service.set_string(cache_key, content, settings.redis_ai_cache_ttl_seconds)
             return content
 
-        response = self._client.responses.create(
-            model=settings.openai_model,
-            input=[{"role": "system", "content": prompt}, *conversation_history],
+        content = self._ai.create_message(
+            system=prompt,
+            messages=list(conversation_history),
         )
-        content = response.output_text.strip()
         ai_logger.info(
-            "ai_reply_generated provider=openai model=%s scenario=%s latency_ms=%.2f history_count=%s",
-            settings.openai_model,
+            "ai_reply_generated provider=%s scenario=%s latency_ms=%.2f history_count=%s",
+            self._ai.provider,
             scenario_title,
             (time.perf_counter() - started_at) * 1000,
             len(conversation_history),
@@ -129,20 +118,16 @@ class AIChatService:
             correction_mode=correction_mode,
             mistake_memory=mistake_memory,
         )
-        if self._client is None:
-            mock = f"[Mock AI: {scenario_title}] I received your message. Let's continue practicing."
-            for word in mock.split():
-                yield word + " "
+        if not self._ai.available:
+            yield (
+                f"AI is not available. AI_PROVIDER is set to '{self._ai.provider}' "
+                f"but the corresponding API key is not configured."
+            )
             return
-        stream = self._client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "system", "content": prompt}, *conversation_history],
-            stream=True,
+        yield from self._ai.stream_message(
+            system=prompt,
+            messages=list(conversation_history),
         )
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
 
 
 ai_chat_service = AIChatService()
