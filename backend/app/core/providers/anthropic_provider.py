@@ -7,14 +7,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-import anthropic
-
 from app.core.config import settings
 from app.core.providers.base import TextProvider
 
 
 class AnthropicTextProvider(TextProvider):
     def __init__(self) -> None:
+        import anthropic  # lazy import — only loaded when AI_PROVIDER=anthropic
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
     def generate(
